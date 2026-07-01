@@ -1,0 +1,74 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - pager
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./api
+    restart: unless-stopped
+    environment:
+      MONGO_URI: ${MONGO_URI}
+      MONGO_DB: ${MONGO_DB}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      SESSION_PEPPER: ${SESSION_PEPPER}
+      LISTEN_ADDR: ":8080"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - pager
+    healthcheck:
+      test: ["CMD", "/pager", "-healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  web:
+    build:
+      context: ./web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PAGER_API_URL: http://api:8080
+    depends_on:
+      - api
+    networks:
+      - pager
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PAGER_DOMAIN: ${PAGER_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - web
+    networks:
+      - pager
+
+networks:
+  pager:
+
+volumes:
+  mongo-data:
+  caddy-data:
+  caddy-config:

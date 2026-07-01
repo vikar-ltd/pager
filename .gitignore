@@ -1,0 +1,13 @@
+.env
+.env.local
+.env.*.local
+node_modules/
+.next/
+out/
+dist/
+*.log
+.DS_Store
+data/db-ip-country-lite.mmdb
+data/mongo/
+api/pager
+api/dist/

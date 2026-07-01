@@ -1,0 +1,12 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$PAGER_DOMAIN} {
+	encode zstd gzip
+
+	@api path /pub/* /int/api/*
+	reverse_proxy @api api:8080
+
+	reverse_proxy web:3000
+}

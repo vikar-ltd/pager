@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Pager — tracker smoke test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+    button { font: inherit; padding: 0.5rem 0.8rem; margin-right: 0.5rem; }
+    code  { background: #f3f3f3; padding: 0.1rem 0.3rem; border-radius: 3px; }
+    .log  { white-space: pre-wrap; background: #111; color: #ddd; padding: 1rem; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Pager tracker smoke test</h1>
+  <p>
+    Open this file in a browser (no need to serve it). The snippet below points
+    at <code>http://localhost:8080/pub/p.js</code> and writes the visitor and
+    session cookies onto whatever origin this page is loaded from.
+  </p>
+
+  <p>
+    <button id="pv">Push fake SPA route (/spa/<span id="n">1</span>)</button>
+    <button id="ev">Fire custom event "signup_completed"</button>
+  </p>
+  <p>Use the page with <code>?utm_source=twitter&amp;utm_campaign=launch</code> to attribute the session.</p>
+
+  <pre class="log" id="log"></pre>
+
+  <script src="http://localhost:8080/pub/p.js" data-site-id="REPLACE_ME"></script>
+  <script>
+    var n = 1;
+    function log(msg) {
+      var pre = document.getElementById('log');
+      pre.textContent += '[' + new Date().toISOString() + '] ' + msg + '\n';
+    }
+    document.getElementById('pv').addEventListener('click', function () {
+      n++;
+      document.getElementById('n').textContent = String(n);
+      history.pushState({}, '', '/spa/' + n + location.search);
+      log('pushState -> /spa/' + n);
+    });
+    document.getElementById('ev').addEventListener('click', function () {
+      window.pager('signup_completed', { plan: 'pro' });
+      log('fired pager("signup_completed", {plan:"pro"})');
+    });
+    log('loaded. cookies: ' + document.cookie);
+  </script>
+</body>
+</html>
