@@ -119,6 +119,16 @@ docker compose up -d --build
 
 Since Pager builds `api` and `web` from source, the `--build` flag rebuilds them from your updated checkout. No downtime beyond the recreated containers (a few seconds).
 
+### One-liner with Taskfile
+
+`scripts/install.sh` also installs [go-task](https://taskfile.dev), so from any fresh install you can use the recipes in `Taskfile.yml` immediately:
+
+```bash
+cd /opt/pager && sudo task update
+```
+
+Run `task -l` from the repo to see every available recipe (`up`, `down`, `status`, `logs:api`, `logs:caddy`, `mongo`, `backup`, `restore FILE=…`, `reset`, `restart SVC=…`, and the dev-only counterparts). All of them are thin wrappers around the corresponding `docker compose …` commands — nothing magic, just discoverable.
+
 ## Backup & restore
 
 ### Backup
@@ -216,6 +226,8 @@ docker compose down                                  # stop everything (data pre
 docker compose up -d --build                         # rebuild + start
 docker compose down -v                               # ⚠ destroys volumes — full data wipe
 ```
+
+If you've installed `task`, the same recipes are `task status`, `task logs:api`, `task mongo`, `task restart`, `task down`, `task update`. `task -l` shows the full list.
 
 ## Data model at a glance
 

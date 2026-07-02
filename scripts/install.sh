@@ -2,8 +2,9 @@
 # Pager one-shot installer for Ubuntu 22.04+/24.04.
 #
 # Installs Docker Engine + the compose plugin from the official Docker apt
-# repo, clones this repo if needed, generates a random admin password and
-# session pepper into .env, and brings the stack up with `docker compose`.
+# repo and the go-task task runner, clones this repo if needed, generates a
+# random admin password and session pepper into .env, and brings the stack
+# up with `docker compose`.
 #
 # Idempotent: on subsequent runs the existing .env is preserved and only
 # `docker compose up` is repeated. Delete .env manually if you want fresh
@@ -100,6 +101,12 @@ if ! docker compose version >/dev/null 2>&1; then
 	die "docker compose plugin not available after install — check apt logs"
 fi
 
+# ---- task runner (https://taskfile.dev) — enables `task update`, `task backup`, etc.
+if ! command -v task >/dev/null 2>&1; then
+	log "installing go-task"
+	curl -sL https://taskfile.dev/install.sh | sh -s -- -d -b /usr/local/bin >/dev/null
+fi
+
 # ---- source checkout
 if [[ ! -d "$INSTALL_DIR/.git" ]]; then
 	log "cloning $REPO_URL into $INSTALL_DIR"
@@ -171,9 +178,15 @@ cat <<EOF
     3. Watch the visitor timeline populate.
 
   Useful commands (run from $INSTALL_DIR):
-    docker compose logs -f api      # tail API logs
-    docker compose ps               # container status
-    docker compose down             # stop everything
-    docker compose pull && docker compose up -d --build  # upgrade
+    task -l              # list all recipes
+    task update          # pull latest code and rebuild the stack
+    task status          # container status
+    task logs:api        # tail API logs
+    task logs:caddy      # tail Caddy / TLS logs
+    task backup          # dump the pager db to ./backups/
+    task mongo           # open a mongosh shell
+
+  Under the hood these are thin wrappers around docker compose — run
+  \`cat Taskfile.yml\` if you want to see what each recipe does.
 ===================================================================
 EOF

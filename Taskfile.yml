@@ -1,0 +1,146 @@
+# Taskfile — one-line commands for running and operating Pager.
+#
+# Install `task`: https://taskfile.dev/installation
+#   curl -sL https://taskfile.dev/install.sh | sudo sh -s -- -d -b /usr/local/bin
+# or on Ubuntu:
+#   sudo snap install task --classic
+#
+# Then: `task -l` to list, `task update` to pull + rebuild, etc.
+
+version: "3"
+
+vars:
+  COMPOSE: docker compose
+  DEV_COMPOSE: docker compose -f docker-compose.yml -f docker-compose.dev.yml
+
+tasks:
+  default:
+    desc: List available tasks
+    silent: true
+    cmds:
+      - task -l --sort alphanumeric
+
+  # ---- operations (production box) ------------------------------------
+
+  update:
+    desc: Pull latest code and rebuild the stack (production update)
+    cmds:
+      - git pull
+      - "{{.COMPOSE}} pull || true"
+      - "{{.COMPOSE}} up -d --build"
+      - "{{.COMPOSE}} ps"
+
+  up:
+    desc: Start the stack without rebuilding
+    cmds:
+      - "{{.COMPOSE}} up -d"
+
+  down:
+    desc: Stop the stack (data preserved in named volumes)
+    cmds:
+      - "{{.COMPOSE}} down"
+
+  status:
+    desc: Show container status
+    cmds:
+      - "{{.COMPOSE}} ps"
+
+  restart:
+    desc: Restart a service (SVC=api by default; e.g. `task restart SVC=caddy`)
+    vars:
+      SVC: '{{.SVC | default "api"}}'
+    cmds:
+      - "{{.COMPOSE}} restart {{.SVC}}"
+
+  # ---- logs -----------------------------------------------------------
+
+  logs:
+    desc: Tail all container logs
+    cmds:
+      - "{{.COMPOSE}} logs -f"
+
+  logs:api:
+    desc: Tail API logs
+    cmds:
+      - "{{.COMPOSE}} logs -f api"
+
+  logs:web:
+    desc: Tail web (Next.js) logs
+    cmds:
+      - "{{.COMPOSE}} logs -f web"
+
+  logs:caddy:
+    desc: Tail Caddy logs (useful for TLS / ACME diagnostics)
+    cmds:
+      - "{{.COMPOSE}} logs -f caddy"
+
+  logs:mongo:
+    desc: Tail Mongo logs
+    cmds:
+      - "{{.COMPOSE}} logs -f mongo"
+
+  # ---- data -----------------------------------------------------------
+
+  mongo:
+    desc: Open an interactive mongo shell against the pager database
+    interactive: true
+    cmds:
+      - "{{.COMPOSE}} exec mongo mongosh pager"
+
+  backup:
+    desc: Dump the pager database to ./backups/pager-YYYY-MM-DD-HHMM.archive.gz
+    cmds:
+      - mkdir -p backups
+      - "{{.COMPOSE}} exec -T mongo mongodump --archive --gzip --db pager > backups/pager-$(date +%F-%H%M).archive.gz"
+      - ls -lh backups/ | tail -5
+
+  restore:
+    desc: Restore from FILE (e.g. `task restore FILE=backups/pager-2026-07-02.archive.gz`)
+    preconditions:
+      - sh: '[ -n "{{.FILE}}" ]'
+        msg: "Set FILE=<path-to-archive> — e.g. task restore FILE=backups/pager-2026-07-02.archive.gz"
+      - sh: 'test -f "{{.FILE}}"'
+        msg: "File not found: {{.FILE}}"
+    prompt: 'Restore {{.FILE}} into the pager database, dropping existing collections?'
+    cmds:
+      - "cat '{{.FILE}}' | {{.COMPOSE}} exec -T mongo mongorestore --archive --gzip --drop"
+
+  reset:
+    desc: DANGER — wipe every user, property, event, and session
+    prompt: This deletes ALL users, properties, events, and sessions. Continue?
+    cmds:
+      - "{{.COMPOSE}} exec -T mongo mongosh pager --eval 'db.users.deleteMany({}); db.admin_sessions.deleteMany({}); db.properties.deleteMany({}); db.goals.deleteMany({}); db.events.deleteMany({}); db.visitors.deleteMany({}); db.tracking_sessions.deleteMany({});'"
+      - "{{.COMPOSE}} restart api"
+      - echo "Reset done. Next boot seeds a fresh root user from .env."
+
+  # ---- dev overlay (local machine) ------------------------------------
+
+  dev:
+    desc: Bring up the dev overlay (adds the Next.js demo site on :3001)
+    cmds:
+      - "{{.DEV_COMPOSE}} up -d --build"
+      - "{{.DEV_COMPOSE}} ps"
+
+  dev:down:
+    desc: Tear down the dev overlay
+    cmds:
+      - "{{.DEV_COMPOSE}} down --remove-orphans"
+
+  dev:rebuild:
+    desc: Rebuild a service in the dev overlay (SVC=web by default)
+    vars:
+      SVC: '{{.SVC | default "web"}}'
+    cmds:
+      - "{{.DEV_COMPOSE}} up -d --build {{.SVC}}"
+
+  dev:e2e:
+    desc: Run the Playwright verifier against the dev stack
+    cmds:
+      - |
+        docker run --rm --network=pager_pager \
+          -v "$PWD/examples/e2e:/e2e" \
+          -w /e2e \
+          -e PAGER_URL=http://caddy \
+          -e DEMO_URL=http://demo:3000 \
+          mcr.microsoft.com/playwright:v1.47.0-jammy \
+          bash -c "npm install --silent && node verify.mjs"
