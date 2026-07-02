@@ -47,8 +47,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!me) return null;
 
   return (
-    <div className="min-h-full grid grid-cols-[14rem_1fr]">
-      <aside className="border-r bg-card flex flex-col">
+    // Pin the whole admin frame to the viewport height so only the <main>
+    // area scrolls — the sidebar stays put no matter how tall the section is.
+    <div className="h-screen grid grid-cols-[14rem_1fr] overflow-hidden">
+      <aside className="border-r bg-card flex flex-col h-full min-h-0">
         <div className="px-5 py-5 border-b">
           <div className="text-base font-semibold tracking-tight">Pager</div>
           <div className="text-xs text-muted-foreground flex items-baseline gap-1.5">
@@ -82,7 +84,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </Button>
         </div>
       </aside>
-      <main className="overflow-auto">
+      <main className="overflow-y-auto min-h-0">
         <div className="mx-auto max-w-5xl px-8 py-8">{children}</div>
       </main>
     </div>
