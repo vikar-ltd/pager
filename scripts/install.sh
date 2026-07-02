@@ -18,13 +18,15 @@
 #     | sudo bash -s -- --domain pager.example.com --email you@example.com
 #
 # Flags:
-#   --domain <host>     Public hostname for the admin UI (required)
-#   --email  <addr>     Email for Let's Encrypt registration (required)
-#   --username <name>   Root username to seed (default: root)
-#   --dir  <path>       Install dir (default: /opt/pager)
-#   --repo <url>        Git remote if the script has to clone
-#   --yes               Non-interactive; fail if --domain / --email are missing
-#   -h, --help          Show this help
+#   --domain <host>       Public hostname for the admin UI (required)
+#   --email  <addr>       Email for Let's Encrypt registration (required)
+#   --username <name>     Root username to seed (default: root)
+#   --dir  <path>         Install dir (default: /opt/pager)
+#   --repo <url>          Git remote if the script has to clone
+#   --auto-update         Install a daily cron that runs `task update` at 04:00
+#   --no-auto-update      Remove the auto-update cron if present
+#   --yes                 Non-interactive; fail if --domain / --email are missing
+#   -h, --help            Show this help
 
 set -euo pipefail
 
@@ -34,6 +36,8 @@ ROOT_USERNAME="${PAGER_ROOT_USERNAME:-root}"
 DOMAIN=""
 EMAIL=""
 NONINTERACTIVE=0
+# "" leaves cron state alone on re-runs; "yes" installs; "no" removes.
+AUTO_UPDATE=""
 
 log()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m!\033[0m %s\n' "$*" >&2; }
@@ -47,8 +51,10 @@ while [[ $# -gt 0 ]]; do
 		--dir)      INSTALL_DIR="$2"; shift 2 ;;
 		--repo)     REPO_URL="$2"; shift 2 ;;
 		--yes|-y)   NONINTERACTIVE=1; shift ;;
+		--auto-update)    AUTO_UPDATE="yes"; shift ;;
+		--no-auto-update) AUTO_UPDATE="no";  shift ;;
 		-h|--help)
-			sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'
+			sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'
 			exit 0 ;;
 		*) die "unknown argument: $1 (see --help)" ;;
 	esac
@@ -157,6 +163,43 @@ for i in $(seq 1 60); do
 	fi
 done
 
+# ---- daily auto-update cron (opt-in)
+CRON_FILE=/etc/cron.d/pager
+LOGROTATE_FILE=/etc/logrotate.d/pager
+if [[ "$AUTO_UPDATE" == "yes" ]]; then
+	log "installing daily auto-update cron (runs at 04:00)"
+	# flock -n prevents overlapping runs if the previous update is still
+	# building. Absolute paths matter because cron's PATH is minimal.
+	cat > "$CRON_FILE" <<CRON
+# Managed by scripts/install.sh — remove or edit as needed. Runs the
+# 'task update' recipe daily at 04:00 UTC and appends to
+# /var/log/pager-update.log (rotated weekly by /etc/logrotate.d/pager).
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+0 4 * * * root cd "$INSTALL_DIR" && flock -n /var/run/pager-update.lock /usr/local/bin/task update >>/var/log/pager-update.log 2>&1
+CRON
+	chmod 644 "$CRON_FILE"
+
+	cat > "$LOGROTATE_FILE" <<'LR'
+/var/log/pager-update.log {
+    weekly
+    rotate 4
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+}
+LR
+	chmod 644 "$LOGROTATE_FILE"
+elif [[ "$AUTO_UPDATE" == "no" ]]; then
+	if [[ -f "$CRON_FILE" || -f "$LOGROTATE_FILE" ]]; then
+		log "removing daily auto-update cron"
+		rm -f "$CRON_FILE" "$LOGROTATE_FILE"
+	fi
+fi
+
 # shellcheck disable=SC1090
 source "$ENV_FILE"
 
@@ -188,5 +231,14 @@ cat <<EOF
 
   Under the hood these are thin wrappers around docker compose — run
   \`cat Taskfile.yml\` if you want to see what each recipe does.
+
+$(if [[ -f "$CRON_FILE" ]]; then
+	echo "  Auto-update: enabled. 'task update' runs daily at 04:00 UTC."
+	echo "  Logs:  /var/log/pager-update.log  (rotated weekly)"
+	echo "  Cron:  $CRON_FILE  (edit to change the schedule)"
+else
+	echo "  Auto-update: not installed. Pass --auto-update to install a"
+	echo "  daily cron that runs 'task update' at 04:00 UTC."
+fi)
 ===================================================================
 EOF

@@ -129,6 +129,20 @@ cd /opt/pager && sudo task update
 
 Run `task -l` from the repo to see every available recipe (`up`, `down`, `status`, `logs:api`, `logs:caddy`, `mongo`, `backup`, `restore FILE=…`, `reset`, `restart SVC=…`, and the dev-only counterparts). All of them are thin wrappers around the corresponding `docker compose …` commands — nothing magic, just discoverable.
 
+### Unattended daily auto-update
+
+Pass `--auto-update` to the installer to opt into a daily cron that runs `task update` at **04:00 UTC**:
+
+```bash
+sudo ./scripts/install.sh --domain pager.example.com --email you@example.com --auto-update
+```
+
+That writes `/etc/cron.d/pager` (with `flock` guarding against overlapping runs) and `/etc/logrotate.d/pager` (weekly rotation, four weeks retained). Logs go to `/var/log/pager-update.log`.
+
+To change the schedule, edit `/etc/cron.d/pager` directly — the cron time (`0 4 * * *`) is a normal cron expression.
+
+To disable later, either delete `/etc/cron.d/pager` by hand or rerun the installer with `--no-auto-update`.
+
 ## Backup & restore
 
 ### Backup
