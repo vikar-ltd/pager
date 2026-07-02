@@ -105,7 +105,7 @@ func main() {
 	}
 
 	propStore := properties.NewStore(db.C(properties.Collection))
-	goalStore := goals.NewStore(db.C(goals.Collection))
+	goalStore := goals.NewStore(db.DB)
 	ingester := ingest.New(db.DB, propStore, goalStore, geoRes)
 	propHandler := &properties.Handler{Store: propStore}
 	goalHandler := &goals.Handler{Store: goalStore}

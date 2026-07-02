@@ -39,15 +39,20 @@ type Goal struct {
 }
 
 type Store struct {
-	c *mongo.Collection
+	c  *mongo.Collection // goals
+	ts *mongo.Collection // tracking_sessions — used to cascade $pull on delete
 
 	// cache compiled URL regexes; keyed by goal ObjectID hex.
 	mu    sync.RWMutex
 	cache map[string]*regexp.Regexp
 }
 
-func NewStore(c *mongo.Collection) *Store {
-	return &Store{c: c, cache: map[string]*regexp.Regexp{}}
+func NewStore(db *mongo.Database) *Store {
+	return &Store{
+		c:     db.Collection(Collection),
+		ts:    db.Collection("tracking_sessions"),
+		cache: map[string]*regexp.Regexp{},
+	}
 }
 
 func validateKindPattern(kind, pattern string) error {
@@ -139,6 +144,14 @@ func (s *Store) Delete(ctx context.Context, id primitive.ObjectID) error {
 	if res.DeletedCount == 0 {
 		return ErrNotFound
 	}
+	// Cascade: strip the deleted goal's id out of every session that recorded
+	// hitting it. Without this, old sessions would keep counting as
+	// "converted" against a goal that no longer exists, and the visitor
+	// timeline would render orphan ObjectID fragments instead of goal names.
+	_, _ = s.ts.UpdateMany(ctx,
+		bson.M{"goalsHit": id},
+		bson.M{"$pull": bson.M{"goalsHit": id}},
+	)
 	s.invalidate(id)
 	return nil
 }

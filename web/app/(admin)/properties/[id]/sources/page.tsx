@@ -2,19 +2,30 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { api, type SourcesResponse, type RangeKey } from "@/lib/api";
+import { api, type Goal, type SourcesResponse, type RangeKey } from "@/lib/api";
 import { RangePicker } from "@/components/range-picker";
+import { GoalPicker } from "@/components/goal-picker";
 import { Section } from "@/components/section";
 
 export default function SourcesPage() {
   const { id } = useParams<{ id: string }>();
   const [range, setRange] = useState<RangeKey>("7d");
+  const [goalId, setGoalId] = useState<string>("");
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [data, setData] = useState<SourcesResponse | null>(null);
 
   useEffect(() => {
+    api.get<Goal[]>(`/properties/${id}/goals`).then(setGoals).catch(() => {});
+  }, [id]);
+
+  useEffect(() => {
     setData(null);
-    api.get<SourcesResponse>(`/properties/${id}/sources?range=${range}`).then(setData).catch(() => {});
-  }, [id, range]);
+    const qs = new URLSearchParams({ range });
+    if (goalId) qs.set("goalId", goalId);
+    api.get<SourcesResponse>(`/properties/${id}/sources?${qs}`).then(setData).catch(() => {});
+  }, [id, range, goalId]);
+
+  const selectedGoal = goals.find((g) => g.id === goalId);
 
   return (
     <div className="space-y-10">
@@ -22,10 +33,19 @@ export default function SourcesPage() {
         <p className="text-sm text-muted-foreground max-w-lg">
           The domains that referred traffic to this property, ranked by session count.
         </p>
-        <RangePicker value={range} onChange={setRange} />
+        <div className="flex items-baseline gap-6 flex-wrap">
+          {goals.length > 0 && <GoalPicker goals={goals} value={goalId} onChange={setGoalId} />}
+          <RangePicker value={range} onChange={setRange} />
+        </div>
       </div>
 
-      <Section label="Referrer hosts">
+      <Section
+        label={
+          selectedGoal
+            ? `Referrer hosts · conversions for "${selectedGoal.name}"`
+            : "Referrer hosts"
+        }
+      >
         {!data ? (
           <div className="eyebrow py-6">loading…</div>
         ) : data.rows.length === 0 ? (

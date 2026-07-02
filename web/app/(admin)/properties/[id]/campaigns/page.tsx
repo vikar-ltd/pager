@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { api, type CampaignsResponse, type RangeKey } from "@/lib/api";
+import { api, type CampaignsResponse, type Goal, type RangeKey } from "@/lib/api";
 import { RangePicker } from "@/components/range-picker";
+import { GoalPicker } from "@/components/goal-picker";
 import { Section } from "@/components/section";
 import { cn } from "@/lib/utils";
 
@@ -18,15 +19,26 @@ export default function CampaignsPage() {
   const { id } = useParams<{ id: string }>();
   const [range, setRange] = useState<RangeKey>("7d");
   const [groupBy, setGroupBy] = useState<GroupBy>("source");
+  const [goalId, setGoalId] = useState<string>("");
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [data, setData] = useState<CampaignsResponse | null>(null);
+
+  // Goals list is stable across range/groupBy changes — fetch once per property.
+  useEffect(() => {
+    api.get<Goal[]>(`/properties/${id}/goals`).then(setGoals).catch(() => {});
+  }, [id]);
 
   useEffect(() => {
     setData(null);
+    const qs = new URLSearchParams({ range, groupBy });
+    if (goalId) qs.set("goalId", goalId);
     api
-      .get<CampaignsResponse>(`/properties/${id}/campaigns?range=${range}&groupBy=${groupBy}`)
+      .get<CampaignsResponse>(`/properties/${id}/campaigns?${qs}`)
       .then(setData)
       .catch(() => {});
-  }, [id, range, groupBy]);
+  }, [id, range, groupBy, goalId]);
+
+  const selectedGoal = goals.find((g) => g.id === goalId);
 
   return (
     <div className="space-y-10">
@@ -48,10 +60,19 @@ export default function CampaignsPage() {
             </button>
           ))}
         </div>
-        <RangePicker value={range} onChange={setRange} />
+        <div className="flex items-baseline gap-6 flex-wrap">
+          {goals.length > 0 && <GoalPicker goals={goals} value={goalId} onChange={setGoalId} />}
+          <RangePicker value={range} onChange={setRange} />
+        </div>
       </div>
 
-      <Section label={`By utm_${groupBy}`}>
+      <Section
+        label={
+          selectedGoal
+            ? `By utm_${groupBy} · conversions for "${selectedGoal.name}"`
+            : `By utm_${groupBy}`
+        }
+      >
         {!data ? (
           <div className="eyebrow py-6">loading…</div>
         ) : data.rows.length === 0 ? (

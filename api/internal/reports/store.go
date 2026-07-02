@@ -143,6 +143,17 @@ func (s *Store) Overview(ctx context.Context, propID primitive.ObjectID, r Range
 	return out, nil
 }
 
+// conversionPredicate is the aggregation expression that evaluates to true
+// for sessions that count as "converted" — either against a specific goal
+// (goalID != nil, checks membership in goalsHit) or against any goal
+// (goalID == nil, checks goalsHit has at least one entry).
+func conversionPredicate(goalID *primitive.ObjectID) bson.M {
+	if goalID != nil {
+		return bson.M{"$in": bson.A{*goalID, bson.M{"$ifNull": bson.A{"$goalsHit", bson.A{}}}}}
+	}
+	return bson.M{"$gt": bson.A{bson.M{"$size": bson.M{"$ifNull": bson.A{"$goalsHit", bson.A{}}}}, 0}}
+}
+
 // ---------------- Campaigns ----------------
 
 type CampaignRow struct {
@@ -156,7 +167,10 @@ type CampaignRow struct {
 // Campaigns groups tracking_sessions by one of utm.source / medium / campaign.
 // Sessions without that utm field roll into the "" bucket so users always see
 // the "no utm" baseline.
-func (s *Store) Campaigns(ctx context.Context, propID primitive.ObjectID, r Range, groupBy string) ([]CampaignRow, error) {
+//
+// If goalID is non-nil, the conversion count reflects sessions that hit that
+// specific goal. Nil means "hit any goal" (the default).
+func (s *Store) Campaigns(ctx context.Context, propID primitive.ObjectID, r Range, groupBy string, goalID *primitive.ObjectID) ([]CampaignRow, error) {
 	field := "utm." + groupBy
 	cur, err := s.DB.Collection("tracking_sessions").Aggregate(ctx, mongo.Pipeline{
 		{{Key: "$match", Value: bson.M{
@@ -167,10 +181,7 @@ func (s *Store) Campaigns(ctx context.Context, propID primitive.ObjectID, r Rang
 			"_id":         bson.M{"$ifNull": bson.A{"$" + field, ""}},
 			"sessions":    bson.M{"$sum": 1},
 			"visitors":    bson.M{"$addToSet": "$visitorId"},
-			"conversions": bson.M{"$sum": bson.M{"$cond": bson.A{
-				bson.M{"$gt": bson.A{bson.M{"$size": bson.M{"$ifNull": bson.A{"$goalsHit", bson.A{}}}}, 0}},
-				1, 0,
-			}}},
+			"conversions": bson.M{"$sum": bson.M{"$cond": bson.A{conversionPredicate(goalID), 1, 0}}},
 		}}},
 		{{Key: "$project", Value: bson.M{
 			"_id":         0,
@@ -210,7 +221,7 @@ type SourceRow struct {
 	ConversionRate float64 `json:"conversionRate"`
 }
 
-func (s *Store) Sources(ctx context.Context, propID primitive.ObjectID, r Range) ([]SourceRow, error) {
+func (s *Store) Sources(ctx context.Context, propID primitive.ObjectID, r Range, goalID *primitive.ObjectID) ([]SourceRow, error) {
 	cur, err := s.DB.Collection("tracking_sessions").Aggregate(ctx, mongo.Pipeline{
 		{{Key: "$match", Value: bson.M{
 			"propertyId": propID,
@@ -220,10 +231,7 @@ func (s *Store) Sources(ctx context.Context, propID primitive.ObjectID, r Range)
 			"_id":         bson.M{"$ifNull": bson.A{"$firstReferrerHost", ""}},
 			"sessions":    bson.M{"$sum": 1},
 			"visitors":    bson.M{"$addToSet": "$visitorId"},
-			"conversions": bson.M{"$sum": bson.M{"$cond": bson.A{
-				bson.M{"$gt": bson.A{bson.M{"$size": bson.M{"$ifNull": bson.A{"$goalsHit", bson.A{}}}}, 0}},
-				1, 0,
-			}}},
+			"conversions": bson.M{"$sum": bson.M{"$cond": bson.A{conversionPredicate(goalID), 1, 0}}},
 		}}},
 		{{Key: "$project", Value: bson.M{
 			"_id":         0,

@@ -59,6 +59,20 @@ func parseID(s string) (primitive.ObjectID, error) {
 	return id, nil
 }
 
+// parseOptionalGoalID pulls a `goalId` query param and validates it. Returns
+// nil when absent (meaning "count conversions against any goal").
+func parseOptionalGoalID(r *http.Request) (*primitive.ObjectID, error) {
+	raw := r.URL.Query().Get("goalId")
+	if raw == "" {
+		return nil, nil
+	}
+	id, err := primitive.ObjectIDFromHex(raw)
+	if err != nil {
+		return nil, httpx.Errorf(http.StatusBadRequest, "bad_goalId", "goalId must be a 24-char hex ObjectID")
+	}
+	return &id, nil
+}
+
 func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	propID, err := parseID(r.PathValue("id"))
 	if err != nil {
@@ -98,12 +112,17 @@ func (h *Handler) Campaigns(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteErr(w, httpx.Errorf(http.StatusBadRequest, "bad_groupBy", "groupBy must be source, medium, or campaign"))
 		return
 	}
-	out, err := h.Store.Campaigns(r.Context(), propID, rng, groupBy)
+	goalID, err := parseOptionalGoalID(r)
 	if err != nil {
 		httpx.WriteErr(w, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"range": rng, "groupBy": groupBy, "rows": out})
+	out, err := h.Store.Campaigns(r.Context(), propID, rng, groupBy, goalID)
+	if err != nil {
+		httpx.WriteErr(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"range": rng, "groupBy": groupBy, "goalId": goalID, "rows": out})
 }
 
 func (h *Handler) Sources(w http.ResponseWriter, r *http.Request) {
@@ -117,12 +136,17 @@ func (h *Handler) Sources(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteErr(w, err)
 		return
 	}
-	out, err := h.Store.Sources(r.Context(), propID, rng)
+	goalID, err := parseOptionalGoalID(r)
 	if err != nil {
 		httpx.WriteErr(w, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"range": rng, "rows": out})
+	out, err := h.Store.Sources(r.Context(), propID, rng, goalID)
+	if err != nil {
+		httpx.WriteErr(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"range": rng, "goalId": goalID, "rows": out})
 }
 
 func (h *Handler) Visitors(w http.ResponseWriter, r *http.Request) {
