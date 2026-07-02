@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { IBM_Plex_Mono, IBM_Plex_Sans, Instrument_Serif } from "next/font/google";
+import { PWARegister } from "@/components/pwa-register";
 import "./globals.css";
 
 // A distinctive humanist serif for numbers, titles, and moments that want
@@ -34,12 +35,28 @@ const mono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Pager",
   description: "Self-hosted web visit tracker",
+  manifest: "/manifest.webmanifest",
+  applicationName: "Pager",
+  appleWebApp: {
+    capable: true,
+    title: "Pager",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#231D19",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`h-full ${serif.variable} ${sans.variable} ${mono.variable}`}>
-      <body className="h-full antialiased font-sans">{children}</body>
+      <body className="h-full antialiased font-sans">
+        {children}
+        <PWARegister />
+      </body>
     </html>
   );
 }
