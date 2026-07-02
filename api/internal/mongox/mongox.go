@@ -55,6 +55,8 @@ func (d *DB) EnsureIndexes(ctx context.Context) error {
 		{"properties", mongo.IndexModel{Keys: bson.D{{Key: "siteId", Value: 1}}, Options: options.Index().SetUnique(true)}},
 		{"goals", mongo.IndexModel{Keys: bson.D{{Key: "propertyId", Value: 1}}}},
 		{"admin_sessions", mongo.IndexModel{Keys: bson.D{{Key: "lastSeenAt", Value: -1}}}},
+		{"admin_sessions", mongo.IndexModel{Keys: bson.D{{Key: "userId", Value: 1}}}},
+		{"users", mongo.IndexModel{Keys: bson.D{{Key: "username", Value: 1}}, Options: options.Index().SetUnique(true)}},
 	}
 	for _, s := range specs {
 		if _, err := d.C(s.coll).Indexes().CreateOne(ctx, s.model); err != nil {

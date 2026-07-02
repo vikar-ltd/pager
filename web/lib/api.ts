@@ -71,10 +71,32 @@ export interface AdminSession {
   revokedAt?: string;
 }
 
+export type Role = "root" | "admin" | "viewer";
+
 export interface Me {
-  username: string;
+  user: { id: string; username: string; role: Role };
   session: AdminSession;
 }
+
+export interface User {
+  id: string;
+  username: string;
+  role: Role;
+  createdAt: string;
+  createdBy?: string;
+}
+
+// ---- role capability helpers, mirrored from api/internal/users/roles.go
+export const roleCan = {
+  write:         (r: Role) => r === "root" || r === "admin",
+  manageUsers:   (r: Role) => r === "root" || r === "admin",
+  create:        (r: Role, target: Role) =>
+    r === "root" || (r === "admin" && target === "viewer"),
+  delete:        (r: Role, target: Role) =>
+    r === "root" || (r === "admin" && target === "viewer"),
+  changeRole:    (r: Role) => r === "root",
+  resetPassword: (r: Role) => r === "root",
+};
 
 // ---- reports
 export type RangeKey = "24h" | "7d" | "30d" | "90d";

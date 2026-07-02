@@ -81,6 +81,13 @@ window.pager?.("signup_completed", { plan: "pro" });
 
 ## Concepts
 
+- **User** — a person who signs into the admin. Three roles:
+  - `root` — full control, including creating other roots/admins and changing anyone's role
+  - `admin` — read-write on properties/goals/reports; can create and delete viewers only
+  - `viewer` — read-only across everything
+  On first boot Pager seeds a `root` user from `ADMIN_USERNAME` / `ADMIN_PASSWORD` env vars.
+  After that, manage users from the Users page. The last root can't be deleted or demoted
+  (prevents lockout). Changing a user's role invalidates their active sessions.
 - **Property** — a site you want to track. Each property has a public `siteId` used in the snippet.
 - **Visitor** — one person, identified by the `_pgr_v` cookie set on the tracked site (2-year TTL).
 - **Tracking session** — a window of activity for a visitor, identified by `_pgr_s` (30-minute sliding idle).

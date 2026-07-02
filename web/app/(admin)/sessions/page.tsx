@@ -42,8 +42,8 @@ export default function SessionsPage() {
     <div className="space-y-8">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Sessions</h1>
-          <p className="text-sm text-muted-foreground">Active admin sessions. Terminating revokes the cookie immediately.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Your sessions</h1>
+          <p className="text-sm text-muted-foreground">Every device you're signed in on. Terminating a session signs that device out immediately.</p>
         </div>
         {otherCount > 0 && (
           <Button onClick={onTerminateOthers} variant="outline" size="sm">
@@ -55,7 +55,7 @@ export default function SessionsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Active sessions</CardTitle>
-          <CardDescription>Sorted by last activity.</CardDescription>
+          <CardDescription>Only your own sessions are shown — everyone else's are private to them.</CardDescription>
         </CardHeader>
         <CardContent>
           {sessions.length === 0 ? (

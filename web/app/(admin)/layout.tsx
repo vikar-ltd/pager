@@ -3,15 +3,17 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { api, ApiError, type Me } from "@/lib/api";
+import { api, ApiError, roleCan, type Me } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Gauge, Globe, KeyRound, LogOut } from "lucide-react";
+import { Gauge, Globe, KeyRound, LogOut, User as UserIcon, Users } from "lucide-react";
 
 const NAV = [
-  { href: "/dashboard", label: "Dashboard", icon: Gauge },
-  { href: "/properties", label: "Properties", icon: Globe },
-  { href: "/sessions", label: "Sessions", icon: KeyRound },
+  { href: "/dashboard", label: "Dashboard", icon: Gauge, requires: (_m: Me) => true },
+  { href: "/properties", label: "Properties", icon: Globe, requires: (_m: Me) => true },
+  { href: "/sessions", label: "Sessions", icon: KeyRound, requires: (_m: Me) => true },
+  { href: "/users", label: "Users", icon: Users, requires: (m: Me) => roleCan.manageUsers(m.user.role) },
+  { href: "/account", label: "Account", icon: UserIcon, requires: (_m: Me) => true },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -49,10 +51,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <aside className="border-r bg-card flex flex-col">
         <div className="px-5 py-5 border-b">
           <div className="text-base font-semibold tracking-tight">Pager</div>
-          <div className="text-xs text-muted-foreground">{me.username}</div>
+          <div className="text-xs text-muted-foreground flex items-baseline gap-1.5">
+            <span>{me.user.username}</span>
+            <span className="text-[10px] uppercase tracking-wider bg-accent rounded px-1 py-0.5 text-accent-foreground">{me.user.role}</span>
+          </div>
         </div>
         <nav className="flex-1 px-2 py-3 space-y-1">
-          {NAV.map((n) => {
+          {NAV.filter((n) => n.requires(me)).map((n) => {
             const active = pathname === n.href || pathname.startsWith(n.href + "/");
             const Icon = n.icon;
             return (

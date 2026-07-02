@@ -9,7 +9,9 @@ export function middleware(req: NextRequest) {
   const protectedRoute =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/properties") ||
-    pathname.startsWith("/sessions");
+    pathname.startsWith("/sessions") ||
+    pathname.startsWith("/users") ||
+    pathname.startsWith("/account");
   if (!protectedRoute) return NextResponse.next();
 
   const hasCookie = req.cookies.has("pgr_admin");
@@ -23,5 +25,11 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/properties/:path*", "/sessions/:path*"],
+  matcher: [
+    "/dashboard/:path*",
+    "/properties/:path*",
+    "/sessions/:path*",
+    "/users/:path*",
+    "/account/:path*",
+  ],
 };

@@ -19,8 +19,10 @@ services:
     environment:
       MONGO_URI: ${MONGO_URI}
       MONGO_DB: ${MONGO_DB}
-      ADMIN_USERNAME: ${ADMIN_USERNAME}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      # ROOT_* is the current name; ADMIN_* still passes through as fallback
+      # for anyone upgrading from a pre-rename .env.
+      ROOT_USERNAME: ${ROOT_USERNAME:-${ADMIN_USERNAME:-root}}
+      ROOT_PASSWORD: ${ROOT_PASSWORD:-${ADMIN_PASSWORD:-}}
       SESSION_PEPPER: ${SESSION_PEPPER}
       LISTEN_ADDR: ":8080"
     depends_on:

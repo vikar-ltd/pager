@@ -31,7 +31,7 @@ async function main() {
   const loginRes = await fetch(`${PAGER}/int/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: "admin", password: "changeme" }),
+    body: JSON.stringify({ username: process.env.ROOT_USERNAME || "root", password: process.env.ROOT_PASSWORD || "changeme" }),
   });
   if (!loginRes.ok) throw new Error(`login failed: ${loginRes.status}`);
   const setCookie = loginRes.headers.get("set-cookie") || "";

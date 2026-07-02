@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"github.com/vikar-ltd/pager/api/internal/auth"
 	"github.com/vikar-ltd/pager/api/internal/config"
 	"github.com/vikar-ltd/pager/api/internal/geo"
@@ -22,6 +24,7 @@ import (
 	"github.com/vikar-ltd/pager/api/internal/reports"
 	"github.com/vikar-ltd/pager/api/internal/session"
 	"github.com/vikar-ltd/pager/api/internal/tracker"
+	"github.com/vikar-ltd/pager/api/internal/users"
 )
 
 func main() {
@@ -68,11 +71,37 @@ func main() {
 	}
 	defer geoRes.Close()
 
-	sessions := session.NewStore(db.C(session.Collection), cfg.SessionPepper)
-	authn, err := auth.NewAuthenticator(cfg.AdminUsername, cfg.AdminPassword, sessions, geoRes)
-	if err != nil {
-		logger.Error("auth", "err", err)
+	userStore := users.NewStore(db.C(users.Collection))
+	if err := userStore.EnsureRootExists(ctx, cfg.RootUsername, cfg.RootPassword); err != nil {
+		logger.Error("seed root user", "err", err)
 		os.Exit(2)
+	}
+	logger.Info("root user seed check complete", "seed_username_if_needed", cfg.RootUsername)
+
+	sessions := session.NewStore(db.C(session.Collection), cfg.SessionPepper)
+	authn := auth.NewAuthenticator(userStore, sessions, geoRes)
+
+	sessHandlers := &session.HandlerSet{
+		Store: sessions,
+		Actor: func(r *http.Request) (primitive.ObjectID, string, bool) {
+			a, ok := auth.ActorFromContext(r.Context())
+			if !ok {
+				return primitive.NilObjectID, "", false
+			}
+			return a.User.ID, a.Session.ID, true
+		},
+	}
+
+	usersHandler := &users.Handler{
+		Store:    userStore,
+		Sessions: sessions,
+		Actor: func(r *http.Request) (primitive.ObjectID, users.Role, bool) {
+			a, ok := auth.ActorFromContext(r.Context())
+			if !ok {
+				return primitive.NilObjectID, "", false
+			}
+			return a.User.ID, a.User.Role, true
+		},
 	}
 
 	propStore := properties.NewStore(db.C(properties.Collection))
@@ -82,13 +111,15 @@ func main() {
 	goalHandler := &goals.Handler{Store: goalStore}
 	reportsHandler := &reports.Handler{Store: reports.NewStore(db.DB)}
 
-	sessHandlers := &session.HandlerSet{
-		Store:   sessions,
-		Current: func(r *http.Request) (session.Session, bool) { return auth.SessionFromContext(r.Context()) },
-	}
-
 	mux := http.NewServeMux()
-	authed := func(h http.HandlerFunc) http.Handler { return authn.Required(h) }
+	// Read auth: any signed-in role.
+	read := func(h http.HandlerFunc) http.Handler { return authn.Required(h) }
+	// Write auth: admin or root.
+	write := func(h http.HandlerFunc) http.Handler { return authn.RequireWrite(h) }
+	// User management: admin or root, but the handlers themselves reject
+	// admin actions against non-viewer targets.
+	manageUsers := func(h http.HandlerFunc) http.Handler { return authn.RequireManageUsers(h) }
+	rootOnly := func(h http.HandlerFunc) http.Handler { return authn.RequireRoot(h) }
 
 	// Health (unauthenticated) — used by the container healthcheck.
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
@@ -102,32 +133,44 @@ func main() {
 	// Auth.
 	mux.HandleFunc("POST /int/api/auth/login", authn.HandleLogin)
 	mux.HandleFunc("POST /int/api/auth/logout", authn.HandleLogout)
-	mux.Handle("GET /int/api/auth/me", authed(authn.HandleMe))
+	mux.Handle("GET /int/api/auth/me", read(authn.HandleMe))
+	mux.Handle("POST /int/api/auth/change-password", read(authn.HandleChangeOwnPassword))
+	mux.Handle("POST /int/api/auth/change-username", read(authn.HandleChangeOwnUsername))
 
 	// Admin sessions.
-	mux.Handle("GET /int/api/admin-sessions", authed(sessHandlers.List))
-	mux.Handle("POST /int/api/admin-sessions/terminate-others", authed(sessHandlers.TerminateOthers))
-	mux.Handle("DELETE /int/api/admin-sessions/{id}", authed(sessHandlers.Terminate))
+	mux.Handle("GET /int/api/admin-sessions", read(sessHandlers.List))
+	mux.Handle("POST /int/api/admin-sessions/terminate-others", read(sessHandlers.TerminateOthers))
+	mux.Handle("DELETE /int/api/admin-sessions/{id}", read(sessHandlers.Terminate))
 
-	// Properties.
-	mux.Handle("GET /int/api/properties", authed(propHandler.List))
-	mux.Handle("POST /int/api/properties", authed(propHandler.Create))
-	mux.Handle("GET /int/api/properties/{id}", authed(propHandler.Get))
-	mux.Handle("PATCH /int/api/properties/{id}", authed(propHandler.Patch))
-	mux.Handle("DELETE /int/api/properties/{id}", authed(propHandler.Delete))
+	// User management. Listing + delete/create are gated by manageUsers; role
+	// change + password reset by rootOnly. The handlers themselves apply
+	// per-target restrictions (admins can only create/delete viewers).
+	mux.Handle("GET /int/api/users", manageUsers(usersHandler.List))
+	mux.Handle("POST /int/api/users", manageUsers(usersHandler.Create))
+	mux.Handle("DELETE /int/api/users/{id}", manageUsers(usersHandler.Delete))
+	mux.Handle("PATCH /int/api/users/{id}/role", rootOnly(usersHandler.SetRole))
+	mux.Handle("PATCH /int/api/users/{id}/password", rootOnly(usersHandler.SetPassword))
+	mux.Handle("PATCH /int/api/users/{id}/username", rootOnly(usersHandler.SetUsername))
 
-	// Goals (nested under property for create/list, direct for patch/delete).
-	mux.Handle("GET /int/api/properties/{id}/goals", authed(goalHandler.ListForProperty))
-	mux.Handle("POST /int/api/properties/{id}/goals", authed(goalHandler.CreateForProperty))
-	mux.Handle("PATCH /int/api/goals/{gid}", authed(goalHandler.Patch))
-	mux.Handle("DELETE /int/api/goals/{gid}", authed(goalHandler.Delete))
+	// Properties — reads open, writes gated.
+	mux.Handle("GET /int/api/properties", read(propHandler.List))
+	mux.Handle("POST /int/api/properties", write(propHandler.Create))
+	mux.Handle("GET /int/api/properties/{id}", read(propHandler.Get))
+	mux.Handle("PATCH /int/api/properties/{id}", write(propHandler.Patch))
+	mux.Handle("DELETE /int/api/properties/{id}", write(propHandler.Delete))
 
-	// Reports.
-	mux.Handle("GET /int/api/properties/{id}/overview",  authed(reportsHandler.Overview))
-	mux.Handle("GET /int/api/properties/{id}/campaigns", authed(reportsHandler.Campaigns))
-	mux.Handle("GET /int/api/properties/{id}/sources",   authed(reportsHandler.Sources))
-	mux.Handle("GET /int/api/properties/{id}/visitors",  authed(reportsHandler.Visitors))
-	mux.Handle("GET /int/api/properties/{id}/visitors/{vid}/timeline", authed(reportsHandler.VisitorTimeline))
+	// Goals — reads open, writes gated.
+	mux.Handle("GET /int/api/properties/{id}/goals", read(goalHandler.ListForProperty))
+	mux.Handle("POST /int/api/properties/{id}/goals", write(goalHandler.CreateForProperty))
+	mux.Handle("PATCH /int/api/goals/{gid}", write(goalHandler.Patch))
+	mux.Handle("DELETE /int/api/goals/{gid}", write(goalHandler.Delete))
+
+	// Reports — all reads.
+	mux.Handle("GET /int/api/properties/{id}/overview", read(reportsHandler.Overview))
+	mux.Handle("GET /int/api/properties/{id}/campaigns", read(reportsHandler.Campaigns))
+	mux.Handle("GET /int/api/properties/{id}/sources", read(reportsHandler.Sources))
+	mux.Handle("GET /int/api/properties/{id}/visitors", read(reportsHandler.Visitors))
+	mux.Handle("GET /int/api/properties/{id}/visitors/{vid}/timeline", read(reportsHandler.VisitorTimeline))
 
 	srv := &http.Server{
 		Addr:              cfg.ListenAddr,

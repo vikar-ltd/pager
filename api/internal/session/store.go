@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -22,16 +23,21 @@ import (
 
 const Collection = "admin_sessions"
 
-var ErrNotFound = errors.New("session not found or revoked")
+var (
+	ErrNotFound         = errors.New("session not found or revoked")
+	errNotFoundInternal = errors.New("session doc missing")
+)
 
 type Session struct {
-	ID         string    `bson:"_id"        json:"id"`
-	CreatedAt  time.Time `bson:"createdAt"  json:"createdAt"`
-	LastSeenAt time.Time `bson:"lastSeenAt" json:"lastSeenAt"`
-	RevokedAt  *time.Time `bson:"revokedAt,omitempty" json:"revokedAt,omitempty"`
-	IP         string    `bson:"ip"         json:"ip"`
-	Country    string    `bson:"country"    json:"country"`
-	UA         ua.Info   `bson:"ua"         json:"ua"`
+	ID         string             `bson:"_id"                 json:"id"`
+	UserID     primitive.ObjectID `bson:"userId"              json:"userId"`
+	Username   string             `bson:"username"            json:"username"`
+	CreatedAt  time.Time          `bson:"createdAt"           json:"createdAt"`
+	LastSeenAt time.Time          `bson:"lastSeenAt"          json:"lastSeenAt"`
+	RevokedAt  *time.Time         `bson:"revokedAt,omitempty" json:"revokedAt,omitempty"`
+	IP         string             `bson:"ip"                  json:"ip"`
+	Country    string             `bson:"country"             json:"country"`
+	UA         ua.Info            `bson:"ua"                  json:"ua"`
 }
 
 type Store struct {
@@ -50,9 +56,9 @@ func (s *Store) hash(token string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// Create mints a new session, persists its hash, and returns both the raw token
-// (caller puts it in the Set-Cookie) and the stored Session record.
-func (s *Store) Create(ctx context.Context, ip net.IP, country string, agent ua.Info) (token string, sess Session, err error) {
+// Create mints a new session tied to a user, persists its hash, and returns
+// both the raw token (caller puts it in the Set-Cookie) and the stored Session.
+func (s *Store) Create(ctx context.Context, userID primitive.ObjectID, username string, ip net.IP, country string, agent ua.Info) (token string, sess Session, err error) {
 	var raw [32]byte
 	if _, err := rand.Read(raw[:]); err != nil {
 		return "", Session{}, err
@@ -61,6 +67,8 @@ func (s *Store) Create(ctx context.Context, ip net.IP, country string, agent ua.
 	now := time.Now().UTC()
 	sess = Session{
 		ID:         s.hash(token),
+		UserID:     userID,
+		Username:   username,
 		CreatedAt:  now,
 		LastSeenAt: now,
 		Country:    country,
@@ -92,9 +100,15 @@ func (s *Store) Lookup(ctx context.Context, token string) (Session, error) {
 	return out, nil
 }
 
-// List returns every session ordered by lastSeenAt desc.
-func (s *Store) List(ctx context.Context) ([]Session, error) {
-	cur, err := s.c.Find(ctx, bson.M{}, options.Find().SetSort(bson.D{{Key: "lastSeenAt", Value: -1}}))
+// List returns every non-revoked session ordered by lastSeenAt desc.
+// If filterUserID is non-zero, only sessions belonging to that user are returned
+// (used to scope viewers to their own sessions).
+func (s *Store) List(ctx context.Context, filterUserID primitive.ObjectID) ([]Session, error) {
+	filter := bson.M{}
+	if !filterUserID.IsZero() {
+		filter["userId"] = filterUserID
+	}
+	cur, err := s.c.Find(ctx, filter, options.Find().SetSort(bson.D{{Key: "lastSeenAt", Value: -1}}))
 	if err != nil {
 		return nil, err
 	}
@@ -106,6 +120,17 @@ func (s *Store) List(ctx context.Context) ([]Session, error) {
 	return out, nil
 }
 
+// find is an internal lookup used by ownership checks — returns the raw doc
+// including any revokedAt field so callers can enforce their own semantics.
+func (s *Store) find(ctx context.Context, id string) (Session, error) {
+	var out Session
+	err := s.c.FindOne(ctx, bson.M{"_id": id}).Decode(&out)
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return Session{}, errNotFoundInternal
+	}
+	return out, err
+}
+
 // Revoke marks a single session revoked. No-op if already revoked or missing.
 func (s *Store) Revoke(ctx context.Context, id string) error {
 	_, err := s.c.UpdateOne(ctx,
@@ -115,14 +140,57 @@ func (s *Store) Revoke(ctx context.Context, id string) error {
 	return err
 }
 
-// RevokeOthers revokes every active session except the given one.
-func (s *Store) RevokeOthers(ctx context.Context, exceptID string) (int64, error) {
+// RevokeOthers revokes every active session for `userID` except `exceptID`.
+// Called from "Terminate all others" so a user can only wipe *their own* other
+// sessions, never someone else's.
+func (s *Store) RevokeOthers(ctx context.Context, userID primitive.ObjectID, exceptID string) (int64, error) {
 	res, err := s.c.UpdateMany(ctx,
-		bson.M{"_id": bson.M{"$ne": exceptID}, "revokedAt": bson.M{"$exists": false}},
+		bson.M{
+			"_id":       bson.M{"$ne": exceptID},
+			"userId":    userID,
+			"revokedAt": bson.M{"$exists": false},
+		},
 		bson.M{"$set": bson.M{"revokedAt": time.Now().UTC()}},
 	)
 	if err != nil {
 		return 0, err
 	}
 	return res.ModifiedCount, nil
+}
+
+// RenameUser rewrites the cached username on every session belonging to a
+// user. Kept in sync so the admin sessions list doesn't show stale identities
+// after a rename. Not user-visible; called from the users package.
+func (s *Store) RenameUser(ctx context.Context, userID primitive.ObjectID, newUsername string) error {
+	_, err := s.c.UpdateMany(ctx,
+		bson.M{"userId": userID},
+		bson.M{"$set": bson.M{"username": newUsername}},
+	)
+	return err
+}
+
+// RevokeAllForUser terminates every non-revoked session belonging to a user.
+// Called when a user's role changes or has their password reset — the change
+// takes effect immediately, but the audit trail (revokedAt) sticks around.
+func (s *Store) RevokeAllForUser(ctx context.Context, userID primitive.ObjectID) (int64, error) {
+	res, err := s.c.UpdateMany(ctx,
+		bson.M{"userId": userID, "revokedAt": bson.M{"$exists": false}},
+		bson.M{"$set": bson.M{"revokedAt": time.Now().UTC()}},
+	)
+	if err != nil {
+		return 0, err
+	}
+	return res.ModifiedCount, nil
+}
+
+// DeleteAllForUser hard-deletes every session doc belonging to a user. Called
+// from the user-delete flow: once the user is gone, retaining stale session
+// docs pointing at a missing userId is only clutter — they can never
+// authenticate anyone and no longer trace back to a person.
+func (s *Store) DeleteAllForUser(ctx context.Context, userID primitive.ObjectID) (int64, error) {
+	res, err := s.c.DeleteMany(ctx, bson.M{"userId": userID})
+	if err != nil {
+		return 0, err
+	}
+	return res.DeletedCount, nil
 }

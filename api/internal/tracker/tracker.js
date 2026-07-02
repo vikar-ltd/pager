@@ -38,7 +38,10 @@
   }
   function visitorId() {
     var v = getCookie(V_KEY);
-    if (!v) { v = randId(); setCookie(V_KEY, v, 60 * 60 * 24 * 365 * 2); }
+    if (!v) v = randId();
+    // Refresh the 2-year expiry on every event so active visitors never
+    // silently roll over to a new identity.
+    setCookie(V_KEY, v, 60 * 60 * 24 * 365 * 2);
     return v;
   }
   function sessionId() {
