@@ -27,40 +27,49 @@ export default function PropertyLayout({ children }: { children: React.ReactNode
   const base = `/properties/${id}`;
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-1">
-        <div className="text-xs text-muted-foreground">
-          <Link href="/properties" className="hover:underline">
-            Properties
-          </Link>{" "}
-          / <span className="font-mono">{property?.siteId ?? "…"}</span>
+    <div className="space-y-10">
+      <header>
+        <div className="flex items-baseline gap-3 flex-wrap">
+          <Link
+            href="/properties"
+            className="font-mono text-[10px] uppercase tracking-eyebrow text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← Properties
+          </Link>
+          {property?.siteId && (
+            <span className="font-mono text-[10px] uppercase tracking-eyebrow text-muted-foreground">
+              site {property.siteId}
+            </span>
+          )}
         </div>
-        <div className="flex items-baseline gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">{property?.name ?? "…"}</h1>
-          <span className="text-sm text-muted-foreground">{property?.domain || ""}</span>
+        <div className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-2">
+          <h1 className="font-serif text-4xl md:text-5xl leading-none tracking-tight break-all">
+            {property?.name ?? "…"}
+          </h1>
+          {property?.domain && (
+            <span className="font-mono text-sm text-muted-foreground break-all">{property.domain}</span>
+          )}
         </div>
-      </div>
+      </header>
 
-      <nav className="border-b">
-        <ul className="flex gap-1">
+      <nav className="-mx-5 md:mx-0">
+        <ul className="flex gap-6 md:gap-8 overflow-x-auto px-5 md:px-0 border-b border-rule">
           {TABS.map((t) => {
             const href = t.slug ? `${base}/${t.slug}` : base;
-            const active =
-              t.slug === ""
-                ? pathname === base
-                : pathname === href || pathname.startsWith(href + "/");
+            const active = t.slug === "" ? pathname === base : pathname === href || pathname.startsWith(href + "/");
             return (
-              <li key={t.slug}>
+              <li key={t.slug} className="shrink-0">
                 <Link
                   href={href}
                   className={cn(
-                    "inline-flex items-center px-3 py-2 text-sm border-b-2 -mb-px transition-colors",
-                    active
-                      ? "border-foreground text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground",
+                    "inline-block whitespace-nowrap py-3 text-sm transition-colors relative",
+                    active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   {t.label}
+                  {active && (
+                    <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-moss" />
+                  )}
                 </Link>
               </li>
             );

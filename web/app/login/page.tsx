@@ -34,41 +34,43 @@ function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="w-full max-w-sm space-y-5 rounded-lg border bg-card p-6 shadow-sm">
-      <div className="space-y-1">
-        <div className="text-lg font-semibold tracking-tight">Sign in to Pager</div>
-        <p className="text-sm text-muted-foreground">Use the admin credentials from your .env file.</p>
+    <form onSubmit={onSubmit} className="w-full max-w-sm">
+      <div className="mb-10 text-center">
+        <div className="font-serif text-6xl italic leading-none">Pager</div>
+        <div className="mt-4 eyebrow">Sign in to continue</div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="u">Username</Label>
-        <Input id="u" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="p">Password</Label>
-        <Input
-          id="p"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-      </div>
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <Label htmlFor="u">Username</Label>
+          <Input id="u" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="p">Password</Label>
+          <Input
+            id="p"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </div>
 
-      {error && <div className="text-sm text-destructive">{error}</div>}
+        {error && <div className="text-sm text-destructive">{error}</div>}
 
-      <Button type="submit" className="w-full" disabled={busy}>
-        {busy ? "Signing in…" : "Sign in"}
-      </Button>
+        <Button type="submit" variant="moss" className="w-full" disabled={busy}>
+          {busy ? "Signing in…" : "Sign in"}
+        </Button>
+      </div>
     </form>
   );
 }
 
 export default function LoginPage() {
   return (
-    <div className="min-h-full grid place-items-center p-6 bg-muted/40">
-      <Suspense fallback={<div className="text-sm text-muted-foreground">Loading…</div>}>
+    <div className="min-h-full grid place-items-center p-6">
+      <Suspense fallback={<div className="eyebrow">loading…</div>}>
         <LoginForm />
       </Suspense>
     </div>

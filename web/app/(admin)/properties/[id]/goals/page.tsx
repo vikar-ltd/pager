@@ -6,10 +6,7 @@ import { api, type Goal } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2 } from "lucide-react";
+import { Section } from "@/components/section";
 
 export default function GoalsPage() {
   const { id } = useParams<{ id: string }>();
@@ -50,93 +47,79 @@ export default function GoalsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Goals</h2>
-        <p className="text-xs text-muted-foreground mt-1">URL goals match the event path with a regex. Event goals match a custom event name exactly.</p>
+    <div className="space-y-14">
+      <div className="max-w-2xl">
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          A goal is a conversion criterion. <em>URL goals</em> match the event path with a regex.
+          <em> Event goals</em> match a custom event name exactly.
+        </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>New goal</CardTitle>
-          <CardDescription>
-            URL example: <code className="font-mono">^/signup</code>. Event example: <code className="font-mono">signup_completed</code>.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onCreate} className="grid grid-cols-1 sm:grid-cols-[1fr_8rem_1fr_auto] gap-3 items-end">
-            <div className="space-y-1.5">
-              <Label htmlFor="g-name">Name</Label>
-              <Input id="g-name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Reached signup" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="g-kind">Kind</Label>
-              <select
-                id="g-kind"
-                value={kind}
-                onChange={(e) => setKind(e.target.value as "url" | "event")}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="url">URL</option>
-                <option value="event">Event</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="g-pattern">{kind === "url" ? "Path regex" : "Event name"}</Label>
-              <Input
-                id="g-pattern"
-                required
-                value={pattern}
-                onChange={(e) => setPattern(e.target.value)}
-                placeholder={kind === "url" ? "^/signup" : "signup_completed"}
-                className="font-mono"
-              />
-            </div>
-            <Button type="submit" disabled={busy || !name.trim() || !pattern.trim()}>
-              {busy ? "…" : "Add"}
-            </Button>
-          </form>
-          {error && <div className="mt-3 text-sm text-destructive">{error}</div>}
-        </CardContent>
-      </Card>
+      <Section label="Add a goal">
+        <form onSubmit={onCreate} className="grid gap-6 sm:grid-cols-[1fr_9rem_1fr_auto] sm:items-end">
+          <div className="space-y-2">
+            <Label htmlFor="g-name">Name</Label>
+            <Input id="g-name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Reached signup" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="g-kind">Kind</Label>
+            <select
+              id="g-kind"
+              value={kind}
+              onChange={(e) => setKind(e.target.value as "url" | "event")}
+              className="w-full h-9 py-2 border-b border-input bg-transparent text-sm focus:outline-none focus:border-foreground"
+            >
+              <option value="url">URL match</option>
+              <option value="event">Custom event</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="g-pattern">{kind === "url" ? "Path regex" : "Event name"}</Label>
+            <Input
+              id="g-pattern"
+              required
+              value={pattern}
+              onChange={(e) => setPattern(e.target.value)}
+              placeholder={kind === "url" ? "^/signup" : "signup_completed"}
+              className="font-mono"
+            />
+          </div>
+          <Button type="submit" variant="moss" disabled={busy || !name.trim() || !pattern.trim()}>
+            {busy ? "…" : "Add goal"}
+          </Button>
+        </form>
+        {error && <div className="mt-4 text-sm text-destructive">{error}</div>}
+      </Section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>All goals</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {goals.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">No goals yet.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Kind</TableHead>
-                  <TableHead>Pattern</TableHead>
-                  <TableHead className="w-12" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {goals.map((g) => (
-                  <TableRow key={g.id}>
-                    <TableCell className="font-medium">{g.name}</TableCell>
-                    <TableCell>
-                      <Badge variant={g.kind === "url" ? "secondary" : "outline"}>{g.kind}</Badge>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{g.pattern}</TableCell>
-                    <TableCell>
-                      <Button onClick={() => onDelete(g.id)} variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive">
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <Section label={`All goals · ${goals.length}`}>
+        {goals.length === 0 ? (
+          <p className="py-6 font-serif text-2xl italic text-muted-foreground">
+            No goals yet.
+          </p>
+        ) : (
+          <ul className="row-divide">
+            {goals.map((g) => (
+              <li key={g.id} className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_5rem_1fr_auto] gap-x-6 gap-y-1 items-center py-4">
+                <div className="text-sm text-foreground">{g.name}</div>
+                <div className="font-mono text-[10px] uppercase tracking-eyebrow text-moss md:text-left text-right">
+                  {g.kind}
+                </div>
+                <div className="col-span-2 md:col-span-1 font-mono text-xs text-muted-foreground break-all">
+                  {g.pattern}
+                </div>
+                <div className="col-span-2 md:col-span-1 text-right">
+                  <button
+                    onClick={() => onDelete(g.id)}
+                    className="font-mono text-[10px] uppercase tracking-eyebrow text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
     </div>
   );
 }

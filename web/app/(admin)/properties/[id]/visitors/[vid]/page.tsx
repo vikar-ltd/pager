@@ -3,9 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { api, type Goal, type Timeline } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { api, type Goal, type Timeline, type TimelineSession } from "@/lib/api";
 
 export default function VisitorTimelinePage() {
   const { id, vid } = useParams<{ id: string; vid: string }>();
@@ -20,93 +18,125 @@ export default function VisitorTimelinePage() {
       .catch(() => {});
   }, [id, vid]);
 
-  if (!data) return <div className="text-sm text-muted-foreground">Loading…</div>;
+  if (!data) return <div className="eyebrow">loading…</div>;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Visitor timeline</h2>
-          <div className="mt-1 text-sm font-mono">{vid}</div>
+    <div className="space-y-10">
+      <header>
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <div>
+            <div className="eyebrow">Visitor</div>
+            <div className="mt-2 font-serif text-3xl italic tracking-tight break-all">{vid}</div>
+          </div>
+          <Link
+            href={`/properties/${id}/visitors`}
+            className="font-mono text-[10px] uppercase tracking-eyebrow text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← All visitors
+          </Link>
         </div>
-        <Link href={`/properties/${id}/visitors`} className="text-xs text-muted-foreground hover:underline">
-          ← all visitors
-        </Link>
-      </div>
+      </header>
 
       {data.sessions.length === 0 ? (
-        <Card>
-          <CardContent className="py-6 text-center text-sm text-muted-foreground">No sessions for this visitor.</CardContent>
-        </Card>
+        <p className="rule-top pt-8 font-serif text-2xl italic text-muted-foreground">
+          No sessions to show.
+        </p>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-14">
           {data.sessions.map((s, i) => (
-            <Card key={s.id}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle>
-                    Session #{data.sessions.length - i}
-                    <span className="ml-2 text-xs text-muted-foreground font-mono font-normal">{s.id.slice(0, 10)}</span>
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    {(s.goalsHit ?? []).map((gid) => (
-                      <Badge key={gid} variant="default">
-                        ✓ {goalsByID[gid]?.name ?? gid.slice(0, 8)}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Started {new Date(s.startedAt).toLocaleString()} · entry{" "}
-                  <span className="font-mono">{new URL(s.entryUrl).pathname}</span>
-                  {s.utm?.source ? (
-                    <>
-                      {" · utm "}
-                      <span className="font-mono">
-                        {s.utm.source}
-                        {s.utm.campaign ? "/" + s.utm.campaign : ""}
-                      </span>
-                    </>
-                  ) : null}
-                  {s.firstReferrer ? (
-                    <>
-                      {" · ref "}
-                      <span className="font-mono">{new URL(s.firstReferrer).hostname}</span>
-                    </>
-                  ) : null}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <ol className="relative border-l pl-4 ml-1 space-y-2">
-                  {s.events.map((e) => (
-                    <li key={e.id} className="text-sm">
-                      <div className="absolute -left-[5px] mt-1.5 size-2 rounded-full bg-foreground" />
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-xs text-muted-foreground tabular-nums w-20 shrink-0">
-                          {new Date(e.ts).toLocaleTimeString()}
-                        </span>
-                        {e.type === "event" ? (
-                          <Badge variant="secondary">event</Badge>
-                        ) : (
-                          <Badge variant="outline">pageview</Badge>
-                        )}
-                        <span className="font-mono text-xs">
-                          {e.type === "event" ? e.name : e.path}
-                        </span>
-                      </div>
-                      {e.props && (
-                        <pre className="ml-22 mt-1 text-[10px] text-muted-foreground bg-muted/40 rounded px-2 py-1 inline-block">
-                          {JSON.stringify(e.props)}
-                        </pre>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              </CardContent>
-            </Card>
+            <SessionBlock
+              key={s.id}
+              session={s}
+              index={data.sessions.length - i}
+              goalsByID={goalsByID}
+            />
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+function SessionBlock({
+  session,
+  index,
+  goalsByID,
+}: {
+  session: TimelineSession;
+  index: number;
+  goalsByID: Record<string, Goal>;
+}) {
+  let entryPath = "/";
+  try { entryPath = new URL(session.entryUrl).pathname; } catch {}
+  let refHost: string | null = null;
+  try { refHost = session.firstReferrer ? new URL(session.firstReferrer).hostname : null; } catch {}
+
+  return (
+    <section className="rule-top pt-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div>
+          <div className="eyebrow">Session {String(index).padStart(2, "0")}</div>
+          <div className="mt-2 font-serif text-2xl leading-tight">
+            <span className="italic">{new Date(session.startedAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</span>
+          </div>
+        </div>
+        {(session.goalsHit ?? []).length > 0 && (
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            {(session.goalsHit ?? []).map((gid) => (
+              <span key={gid} className="font-mono text-[10px] uppercase tracking-eyebrow text-moss">
+                ✓ {goalsByID[gid]?.name ?? gid.slice(0, 8)}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <dl className="mt-3 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs">
+        <dt className="font-mono uppercase tracking-eyebrow text-muted-foreground">Entry</dt>
+        <dd className="font-mono text-foreground truncate">{entryPath}</dd>
+        {session.utm?.source && (
+          <>
+            <dt className="font-mono uppercase tracking-eyebrow text-muted-foreground">UTM</dt>
+            <dd className="font-mono text-foreground">
+              {session.utm.source}
+              {session.utm.campaign ? " / " + session.utm.campaign : ""}
+            </dd>
+          </>
+        )}
+        {refHost && (
+          <>
+            <dt className="font-mono uppercase tracking-eyebrow text-muted-foreground">From</dt>
+            <dd className="font-mono text-foreground">{refHost}</dd>
+          </>
+        )}
+      </dl>
+
+      <ol className="mt-6 relative border-l border-rule pl-6 space-y-3">
+        {session.events.map((e) => (
+          <li key={e.id} className="relative">
+            <span className="absolute -left-[calc(1.5rem+3.5px)] top-2 w-1.5 h-1.5 rounded-full bg-foreground" />
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <span className="font-mono text-[10px] uppercase tracking-eyebrow tabular-nums w-16 shrink-0 text-muted-foreground">
+                {new Date(e.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              </span>
+              <span className={
+                "font-mono text-[10px] uppercase tracking-eyebrow " +
+                (e.type === "event" ? "text-moss" : "text-muted-foreground")
+              }>
+                {e.type}
+              </span>
+              <span className="font-mono text-sm text-foreground break-all">
+                {e.type === "event" ? e.name : e.path}
+              </span>
+            </div>
+            {e.props && (
+              <pre className="mt-1 ml-[4.75rem] text-[11px] text-muted-foreground bg-accent/40 px-2 py-1 rounded-sm inline-block font-mono">
+                {JSON.stringify(e.props)}
+              </pre>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }

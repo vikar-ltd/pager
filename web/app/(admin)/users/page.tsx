@@ -5,10 +5,8 @@ import { api, ApiError, roleCan, type Me, type Role, type User } from "@/lib/api
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trash2, KeyRound, Pencil } from "lucide-react";
+import { Section } from "@/components/section";
+import { cn } from "@/lib/utils";
 
 const ROLES: Role[] = ["root", "admin", "viewer"];
 
@@ -18,7 +16,6 @@ export default function UsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // create form
   const [uname, setUname] = useState("");
   const [pw, setPw] = useState("");
   const [role, setRole] = useState<Role>("viewer");
@@ -27,7 +24,6 @@ export default function UsersPage() {
     const [m, us] = await Promise.all([api.get<Me>("/auth/me"), api.get<User[]>("/users")]);
     setMe(m);
     setUsers(us);
-    // clamp default create role to what this actor can create
     if (m.user.role === "admin" && role !== "viewer") setRole("viewer");
   }
 
@@ -35,9 +31,9 @@ export default function UsersPage() {
     refresh().catch(() => {});
   }, []);
 
-  if (!me) return <div className="text-sm text-muted-foreground">Loading…</div>;
+  if (!me) return <div className="eyebrow">loading…</div>;
 
-  const meResolved = me; // narrow for use inside async closures below
+  const meResolved = me;
   const actor = meResolved.user.role;
   const creatableRoles = ROLES.filter((t) => roleCan.create(actor, t));
 
@@ -103,136 +99,128 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
-        <p className="text-sm text-muted-foreground">
+    <div className="space-y-14">
+      <header className="max-w-2xl">
+        <div className="eyebrow">Users</div>
+        <h1 className="mt-3 font-serif text-4xl md:text-5xl leading-[1.05] tracking-tight">
+          Who else has the keys.
+        </h1>
+        <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
           {actor === "root"
-            ? "Full control. You can create any role and change existing ones."
+            ? "You have full control. Create any role, change existing ones, reset passwords."
             : "Admins can only create and delete viewers. Role changes require a root user."}
         </p>
-      </div>
+      </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>New user</CardTitle>
-          <CardDescription>Passwords must be at least 8 characters. Communicate the initial password to the user out-of-band.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onCreate} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_10rem_auto] gap-3 items-end">
-            <div className="space-y-1.5">
-              <Label htmlFor="uname">Username</Label>
-              <Input id="uname" required value={uname} onChange={(e) => setUname(e.target.value)} placeholder="carol" autoComplete="off" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="pw">Initial password</Label>
-              <Input id="pw" type="password" required minLength={8} value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="new-password" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="role">Role</Label>
-              <select
-                id="role"
-                value={role}
-                onChange={(e) => setRole(e.target.value as Role)}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                {creatableRoles.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Button type="submit" disabled={busy || !uname.trim() || pw.length < 8}>
-              {busy ? "Creating…" : "Create user"}
-            </Button>
-          </form>
-          {error && <div className="mt-3 text-sm text-destructive">{error}</div>}
-        </CardContent>
-      </Card>
+      <Section label="Add someone">
+        <form onSubmit={onCreate} className="grid gap-6 sm:grid-cols-[1fr_1fr_9rem_auto] sm:items-end">
+          <div className="space-y-2">
+            <Label htmlFor="uname">Username</Label>
+            <Input id="uname" required value={uname} onChange={(e) => setUname(e.target.value)} placeholder="carol" autoComplete="off" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="pw">Initial password</Label>
+            <Input id="pw" type="password" required minLength={8} value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="new-password" placeholder="min 8 chars" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="role">Role</Label>
+            <select
+              id="role"
+              value={role}
+              onChange={(e) => setRole(e.target.value as Role)}
+              className="w-full h-9 py-2 border-b border-input bg-transparent text-sm focus:outline-none focus:border-foreground"
+            >
+              {creatableRoles.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </div>
+          <Button type="submit" variant="moss" disabled={busy || !uname.trim() || pw.length < 8}>
+            {busy ? "Creating…" : "Add user"}
+          </Button>
+        </form>
+        {error && <div className="mt-4 text-sm text-destructive">{error}</div>}
+      </Section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>All users</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Username</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((u) => {
-                const isSelf = u.id === meResolved.user.id;
-                const canDelete = roleCan.delete(actor, u.role) && !(isSelf && u.role === "root");
-                const canChangeRole = roleCan.changeRole(actor);
-                const canResetPw = roleCan.resetPassword(actor) && !isSelf;
-                // Root can rename anyone via the admin API; each user renames
-                // themselves from /account, so we hide the row action there.
-                const canRename = actor === "root" && !isSelf;
-                return (
-                  <TableRow key={u.id}>
-                    <TableCell className="font-medium">
-                      {u.username}
-                      {isSelf && <span className="text-xs text-muted-foreground ml-2">(you)</span>}
-                    </TableCell>
-                    <TableCell>
+      <Section label={`Everyone · ${users.length}`}>
+        <ul className="row-divide">
+          {users.map((u) => {
+            const isSelf = u.id === meResolved.user.id;
+            const canDelete = roleCan.delete(actor, u.role) && !(isSelf && u.role === "root");
+            const canChangeRole = roleCan.changeRole(actor);
+            const canResetPw = roleCan.resetPassword(actor) && !isSelf;
+            const canRename = actor === "root" && !isSelf;
+            return (
+              <li key={u.id} className="group py-4">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <span className="text-lg text-foreground">{u.username}</span>
+                      {isSelf && (
+                        <span className="font-mono text-[10px] uppercase tracking-eyebrow text-moss">
+                          you
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1 flex items-baseline gap-3 font-mono text-[11px] uppercase tracking-eyebrow text-muted-foreground">
                       {canChangeRole ? (
                         <select
                           value={u.role}
                           onChange={(e) => onChangeRole(u, e.target.value as Role)}
-                          className="h-7 rounded border border-input bg-background px-2 text-xs"
-                          disabled={isSelf && u.role === "root" /* last-root guardrail — actual enforcement server-side */}
+                          disabled={isSelf && u.role === "root"}
+                          className="bg-transparent border-0 -mx-1 px-1 py-0 font-mono text-[11px] uppercase tracking-eyebrow focus:outline-none focus:bg-accent/50 rounded-sm cursor-pointer disabled:cursor-not-allowed"
                         >
                           {ROLES.map((r) => (
-                            <option key={r} value={r}>
-                              {r}
-                            </option>
+                            <option key={r} value={r}>{r}</option>
                           ))}
                         </select>
                       ) : (
-                        <Badge variant={u.role === "root" ? "default" : u.role === "admin" ? "secondary" : "outline"}>
-                          {u.role}
-                        </Badge>
+                        <span className={cn(u.role === "root" ? "text-moss" : "")}>{u.role}</span>
                       )}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{new Date(u.createdAt).toLocaleDateString()}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {canRename && (
-                          <Button size="icon" variant="ghost" onClick={() => onRename(u)} title="Rename user">
-                            <Pencil className="size-4" />
-                          </Button>
-                        )}
-                        {canResetPw && (
-                          <Button size="icon" variant="ghost" onClick={() => onResetPassword(u)} title="Reset password">
-                            <KeyRound className="size-4" />
-                          </Button>
-                        )}
-                        {canDelete && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => onDelete(u)}
-                            className="text-muted-foreground hover:text-destructive"
-                            title="Delete user"
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                      <span>· since {new Date(u.createdAt).toLocaleDateString([], { month: "short", year: "numeric" })}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-4 shrink-0 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 md:transition-opacity">
+                    {canRename && (
+                      <ActionLink onClick={() => onRename(u)}>Rename</ActionLink>
+                    )}
+                    {canResetPw && (
+                      <ActionLink onClick={() => onResetPassword(u)}>Reset password</ActionLink>
+                    )}
+                    {canDelete && (
+                      <ActionLink onClick={() => onDelete(u)} destructive>Delete</ActionLink>
+                    )}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </Section>
     </div>
+  );
+}
+
+function ActionLink({
+  onClick,
+  children,
+  destructive,
+}: {
+  onClick: () => void;
+  children: React.ReactNode;
+  destructive?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "font-mono text-[10px] uppercase tracking-eyebrow transition-colors",
+        destructive
+          ? "text-muted-foreground hover:text-destructive"
+          : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
   );
 }

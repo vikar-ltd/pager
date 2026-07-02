@@ -6,7 +6,7 @@ import { api, type Property } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Section } from "@/components/section";
 import { Copy } from "lucide-react";
 
 export default function PropertySettingsPage() {
@@ -16,7 +16,7 @@ export default function PropertySettingsPage() {
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
   const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
 
   useEffect(() => {
     api.get<Property>(`/properties/${id}`).then((p) => {
@@ -26,11 +26,11 @@ export default function PropertySettingsPage() {
     });
   }, [id]);
 
-  if (!property) return <div className="text-sm text-muted-foreground">Loading…</div>;
+  if (!property) return <div className="eyebrow">loading…</div>;
 
   const origin = typeof window !== "undefined" ? window.location.origin : "https://YOUR-PAGER";
-  const snippet = `<script src="${origin}/pub/p.js" data-site-id="${property.siteId}"></script>`;
-  const nextSnippet = `import Script from "next/script";
+  const html = `<script src="${origin}/pub/p.js" data-site-id="${property.siteId}"></script>`;
+  const next = `import Script from "next/script";
 
 <Script
   src="${origin}/pub/p.js"
@@ -38,10 +38,10 @@ export default function PropertySettingsPage() {
   strategy="afterInteractive"
 />`;
 
-  async function copy(t: string) {
-    await navigator.clipboard.writeText(t);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+  async function copy(text: string, key: string) {
+    await navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 1500);
   }
 
   async function onSave(e: React.FormEvent) {
@@ -62,71 +62,84 @@ export default function PropertySettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Install the snippet</CardTitle>
-          <CardDescription>Paste this onto every page you want tracked.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
+    <div className="space-y-14">
+      <Section label="Install the snippet">
+        <p className="mb-6 text-sm text-muted-foreground leading-relaxed max-w-lg">
+          Paste this onto every page you want tracked. It handles SPA route changes on its own.
+        </p>
+
+        <div className="space-y-6">
+          <SnippetBlock
+            heading="Plain HTML"
+            code={html}
+            onCopy={() => copy(html, "html")}
+            copied={copied === "html"}
+          />
+          <SnippetBlock
+            heading="Next.js — app/layout.tsx"
+            code={next}
+            onCopy={() => copy(next, "next")}
+            copied={copied === "next"}
+          />
+        </div>
+      </Section>
+
+      <Section label="Property details">
+        <form onSubmit={onSave} className="grid gap-6 sm:grid-cols-[1fr_1fr_auto] sm:items-end max-w-2xl">
           <div className="space-y-2">
-            <div className="text-xs font-medium text-muted-foreground">Plain HTML</div>
-            <div className="relative">
-              <pre className="overflow-x-auto rounded-md border bg-muted/50 px-4 py-3 text-xs font-mono">{snippet}</pre>
-              <Button size="sm" variant="ghost" onClick={() => copy(snippet)} className="absolute right-1 top-1">
-                <Copy className="size-3.5" />
-              </Button>
-            </div>
+            <Label htmlFor="s-name">Name</Label>
+            <Input id="s-name" required value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <div className="text-xs font-medium text-muted-foreground">Next.js (app/layout.tsx)</div>
-            <div className="relative">
-              <pre className="overflow-x-auto rounded-md border bg-muted/50 px-4 py-3 text-xs font-mono whitespace-pre">{nextSnippet}</pre>
-              <Button size="sm" variant="ghost" onClick={() => copy(nextSnippet)} className="absolute right-1 top-1">
-                <Copy className="size-3.5" />
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              SPA route changes are auto-detected via <code className="font-mono">history.pushState</code>; no{" "}
-              <code className="font-mono">usePathname()</code> effect needed.
-            </p>
+            <Label htmlFor="s-domain">Domain</Label>
+            <Input id="s-domain" value={domain} onChange={(e) => setDomain(e.target.value)} />
           </div>
-          {copied && <div className="text-xs text-muted-foreground">Copied ✓</div>}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Property details</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSave} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
-            <div className="space-y-1.5">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="domain">Domain</Label>
-              <Input id="domain" value={domain} onChange={(e) => setDomain(e.target.value)} />
-            </div>
-            <Button type="submit" disabled={busy}>
-              {busy ? "Saving…" : "Save"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-destructive">Danger zone</CardTitle>
-          <CardDescription>Deleting a property stops new event ingest for this site ID. Existing events stay in Mongo.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button onClick={onDelete} variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10">
-            Delete property
+          <Button type="submit" disabled={busy}>
+            {busy ? "Saving…" : "Save"}
           </Button>
-        </CardContent>
-      </Card>
+        </form>
+      </Section>
+
+      <Section label="Danger zone">
+        <p className="mb-4 text-sm text-muted-foreground max-w-lg">
+          Deleting a property stops new event ingest for this site ID. Existing events stay in Mongo — nothing about the past changes.
+        </p>
+        <button
+          onClick={onDelete}
+          className="font-mono text-[11px] uppercase tracking-eyebrow text-destructive hover:underline underline-offset-4 decoration-destructive"
+        >
+          Delete this property →
+        </button>
+      </Section>
+    </div>
+  );
+}
+
+function SnippetBlock({
+  heading,
+  code,
+  onCopy,
+  copied,
+}: {
+  heading: string;
+  code: string;
+  onCopy: () => void;
+  copied: boolean;
+}) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-2">
+        <div className="font-mono text-[10px] uppercase tracking-eyebrow text-muted-foreground">{heading}</div>
+        <button
+          onClick={onCopy}
+          className="font-mono text-[10px] uppercase tracking-eyebrow text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
+        >
+          {copied ? "Copied ✓" : (<><Copy className="size-3" /> Copy</>)}
+        </button>
+      </div>
+      <pre className="border-l-2 border-moss pl-4 py-2 font-mono text-xs text-foreground overflow-x-auto whitespace-pre bg-accent/25">
+        {code}
+      </pre>
     </div>
   );
 }

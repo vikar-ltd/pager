@@ -3,50 +3,81 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api, type Property } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Globe } from "lucide-react";
+import { Section } from "@/components/section";
 
 export default function DashboardPage() {
   const [properties, setProperties] = useState<Property[]>([]);
+  const [loaded, setLoaded] = useState(false);
   useEffect(() => {
-    api.get<Property[]>("/properties").then(setProperties).catch(() => {});
+    api.get<Property[]>("/properties")
+      .then(setProperties)
+      .catch(() => {})
+      .finally(() => setLoaded(true));
   }, []);
 
   return (
-    <div className="space-y-8">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Reports land in the next build phase. For now, manage your properties.</p>
-      </div>
+    <div className="space-y-14">
+      <header className="max-w-2xl">
+        <div className="eyebrow">Dashboard</div>
+        <h1 className="mt-3 font-serif text-5xl md:text-6xl leading-[1.05] tracking-tight">
+          Your sites, <em className="italic">at a glance</em>.
+        </h1>
+        <p className="mt-4 text-muted-foreground text-[15px] leading-relaxed">
+          Pick a property to see the story of who's visiting, where they came from,
+          and what they did once they arrived.
+        </p>
+      </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Your properties</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {properties.length === 0 ? (
-            <div className="flex flex-col items-start gap-3">
-              <p className="text-sm text-muted-foreground">No properties yet.</p>
-              <Button asChild size="sm">
-                <Link href="/properties">Create your first property</Link>
-              </Button>
-            </div>
-          ) : (
-            <ul className="divide-y">
-              {properties.map((p) => (
-                <li key={p.id} className="flex items-center justify-between py-2">
-                  <Link href={`/properties/${p.id}`} className="flex items-center gap-2 text-sm hover:underline">
-                    <Globe className="size-4 text-muted-foreground" />
-                    {p.name}
-                  </Link>
-                  <span className="text-xs text-muted-foreground font-mono">{p.siteId}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <Section
+        label={`Properties · ${properties.length}`}
+        aside={
+          <Link
+            href="/properties"
+            className="font-mono text-[10px] uppercase tracking-eyebrow text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Add new ↗
+          </Link>
+        }
+      >
+        {!loaded ? (
+          <div className="eyebrow py-6">loading…</div>
+        ) : properties.length === 0 ? (
+          <div className="py-6">
+            <p className="font-serif text-2xl italic text-muted-foreground">
+              Nothing tracked yet.
+            </p>
+            <Link
+              href="/properties"
+              className="mt-3 inline-block font-mono text-[11px] uppercase tracking-eyebrow underline underline-offset-4 decoration-moss decoration-2"
+            >
+              Create your first property
+            </Link>
+          </div>
+        ) : (
+          <ul className="row-divide">
+            {properties.map((p) => (
+              <li key={p.id}>
+                <Link
+                  href={`/properties/${p.id}`}
+                  className="group flex items-baseline justify-between gap-4 py-4 transition-colors hover:text-foreground"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-lg text-foreground group-hover:underline underline-offset-4 decoration-moss decoration-2 truncate">
+                      {p.name}
+                    </div>
+                    {p.domain && (
+                      <div className="mt-0.5 text-sm text-muted-foreground truncate">{p.domain}</div>
+                    )}
+                  </div>
+                  <div className="font-mono text-xs text-muted-foreground shrink-0 tabular-nums">
+                    {p.siteId}
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
     </div>
   );
 }

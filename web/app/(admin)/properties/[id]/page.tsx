@@ -5,13 +5,12 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { api, type Overview, type RangeKey } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { RangePicker } from "@/components/range-picker";
+import { Section } from "@/components/section";
 
 const TimeseriesChart = dynamic(() => import("@/components/overview-chart").then((m) => m.TimeseriesChart), {
   ssr: false,
-  loading: () => <div className="h-64 grid place-items-center text-xs text-muted-foreground">Loading chart…</div>,
+  loading: () => <div className="h-64 grid place-items-end pb-4"><span className="eyebrow">loading chart…</span></div>,
 });
 
 export default function OverviewPage() {
@@ -27,46 +26,50 @@ export default function OverviewPage() {
   const empty = data && data.totals.visitors === 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Overview</h2>
+    <div className="space-y-12">
+      {/* Four peer stats, all set at the same size — no one number wins */}
+      <section>
+        <div className="flex flex-wrap items-baseline justify-between gap-4">
+          <div className="eyebrow">Overview · last {rangeLabel(range)}</div>
+          <RangePicker value={range} onChange={setRange} />
         </div>
-        <RangePicker value={range} onChange={setRange} />
-      </div>
+        <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-8">
+          <Stat label="Pageviews" value={data?.totals.pageviews} />
+          <Stat label="Visitors"  value={data?.totals.visitors} />
+          <Stat label="Sessions"  value={data?.totals.sessions} />
+          <Stat label="Events"    value={data?.totals.events} />
+        </div>
+      </section>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat label="Visitors" value={data?.totals.visitors} />
-        <Stat label="Sessions" value={data?.totals.sessions} />
-        <Stat label="Pageviews" value={data?.totals.pageviews} />
-        <Stat label="Events" value={data?.totals.events} />
-      </div>
-
-      <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle>Activity</CardTitle>
-          {data && <span className="text-xs text-muted-foreground">bucket: {data.range.unit}</span>}
-        </CardHeader>
-        <CardContent>
+      <Section
+        label="Activity"
+        aside={data && (
+          <span className="font-mono text-[10px] uppercase tracking-eyebrow text-muted-foreground">
+            by {data.range.unit}
+          </span>
+        )}
+      >
+        <div className="pt-2">
           {data ? <TimeseriesChart data={data.timeseries} unit={data.range.unit} /> : <div className="h-64" />}
-        </CardContent>
-      </Card>
+        </div>
+        <div className="mt-4 flex items-center gap-6 text-xs text-muted-foreground">
+          <ChartLegend swatchClass="bg-moss" label="Pageviews" />
+          <ChartLegend swatchClass="border border-foreground border-dashed" label="Visitors" hollow />
+        </div>
+      </Section>
 
       {empty && (
-        <Card>
-          <CardHeader>
-            <CardTitle>No data in this window</CardTitle>
-            <CardDescription>
-              Once the snippet is on a tracked page, events appear here within seconds. The Settings tab has copy-pasteable
-              installation instructions.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild size="sm" variant="outline">
-              <Link href={`/properties/${id}/settings`}>View install snippet</Link>
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="rule-top pt-8">
+          <p className="font-serif text-3xl italic text-muted-foreground max-w-lg leading-snug">
+            No traffic in this window yet.
+          </p>
+          <Link
+            href={`/properties/${id}/settings`}
+            className="mt-4 inline-block font-mono text-[11px] uppercase tracking-eyebrow text-foreground underline underline-offset-4 decoration-moss decoration-2"
+          >
+            View install snippet
+          </Link>
+        </div>
       )}
     </div>
   );
@@ -74,9 +77,24 @@ export default function OverviewPage() {
 
 function Stat({ label, value }: { label: string; value?: number }) {
   return (
-    <div className="rounded-lg border bg-card p-4">
-      <div className="text-xs text-muted-foreground uppercase tracking-wide">{label}</div>
-      <div className="mt-1 text-2xl font-semibold tabular-nums">{value?.toLocaleString() ?? "—"}</div>
+    <div>
+      <div className="eyebrow">{label}</div>
+      <div className="mt-2 stat-num-sm">
+        {value !== undefined ? value.toLocaleString() : <span className="text-muted-foreground/40">—</span>}
+      </div>
     </div>
   );
+}
+
+function ChartLegend({ swatchClass, label, hollow }: { swatchClass: string; label: string; hollow?: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className={`inline-block w-3 h-3 ${hollow ? "" : "rounded-sm"} ${swatchClass}`} />
+      <span className="font-mono text-[10px] uppercase tracking-eyebrow">{label}</span>
+    </span>
+  );
+}
+
+function rangeLabel(r: RangeKey) {
+  return { "24h": "24 hours", "7d": "7 days", "30d": "30 days", "90d": "90 days" }[r];
 }

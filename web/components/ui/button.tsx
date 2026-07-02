@@ -4,22 +4,32 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-all duration-150 disabled:pointer-events-none disabled:opacity-40 focus-moss select-none",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+        // Ink-on-paper filled button
+        default:
+          "bg-primary text-primary-foreground rounded-sm hover:bg-primary/90 active:bg-primary/95",
+        // Moss accent for the strong yes
+        moss:
+          "bg-moss text-primary-foreground rounded-sm hover:brightness-110 active:brightness-95",
+        destructive:
+          "bg-destructive text-destructive-foreground rounded-sm hover:brightness-110",
+        // A minimal button with just a hairline border
+        outline:
+          "border border-input bg-transparent rounded-sm hover:bg-accent hover:text-accent-foreground",
+        // Text-only, underlines on hover — like a link
+        ghost:
+          "bg-transparent hover:text-foreground text-muted-foreground rounded-sm px-1 -mx-1 underline-offset-[3px] hover:underline decoration-1",
+        link:
+          "text-foreground underline-offset-[3px] underline decoration-1 hover:decoration-[hsl(var(--moss))]",
       },
       size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-md px-3 text-xs",
-        lg: "h-10 rounded-md px-6",
-        icon: "h-9 w-9",
+        default: "h-9 px-4 text-sm",
+        sm: "h-8 px-3 text-xs",
+        lg: "h-11 px-6 text-sm tracking-wide",
+        icon: "h-8 w-8 rounded-sm",
       },
     },
     defaultVariants: { variant: "default", size: "default" },

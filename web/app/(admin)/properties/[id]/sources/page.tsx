@@ -3,9 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { api, type SourcesResponse, type RangeKey } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RangePicker } from "@/components/range-picker";
+import { Section } from "@/components/section";
 
 export default function SourcesPage() {
   const { id } = useParams<{ id: string }>();
@@ -18,68 +17,72 @@ export default function SourcesPage() {
   }, [id, range]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Referrer sources</h2>
+    <div className="space-y-10">
+      <div className="flex flex-wrap items-baseline justify-between gap-4">
+        <p className="text-sm text-muted-foreground max-w-lg">
+          The domains that referred traffic to this property, ranked by session count.
+        </p>
         <RangePicker value={range} onChange={setRange} />
       </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle>By referrer host</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {!data ? (
-            <div className="h-24 grid place-items-center text-xs text-muted-foreground">Loading…</div>
-          ) : data.rows.length === 0 ? (
-            <div className="py-6 text-center text-sm text-muted-foreground">No traffic in this window.</div>
-          ) : (
-            <SourcesTable rows={data.rows} />
-          )}
-        </CardContent>
-      </Card>
+      <Section label="Referrer hosts">
+        {!data ? (
+          <div className="eyebrow py-6">loading…</div>
+        ) : data.rows.length === 0 ? (
+          <p className="py-6 font-serif text-2xl italic text-muted-foreground">
+            No referrals in this window.
+          </p>
+        ) : (
+          <RankedList rows={data.rows} />
+        )}
+      </Section>
     </div>
   );
 }
 
-function SourcesTable({
+function RankedList({
   rows,
 }: {
   rows: { host: string; sessions: number; visitors: number; conversions: number; conversionRate: number }[];
 }) {
   const max = Math.max(...rows.map((r) => r.sessions), 1);
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Host</TableHead>
-          <TableHead className="text-right">Visitors</TableHead>
-          <TableHead className="text-right">Sessions</TableHead>
-          <TableHead className="text-right">Conv.</TableHead>
-          <TableHead className="text-right">Rate</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+    <div>
+      <div className="hidden sm:grid grid-cols-[1fr_5rem_5rem_5rem] gap-4 pb-3 border-b border-rule">
+        <div className="font-mono text-[10px] uppercase tracking-eyebrow text-muted-foreground">Host</div>
+        <div className="font-mono text-[10px] uppercase tracking-eyebrow text-muted-foreground text-right">Visitors</div>
+        <div className="font-mono text-[10px] uppercase tracking-eyebrow text-muted-foreground text-right">Sessions</div>
+        <div className="font-mono text-[10px] uppercase tracking-eyebrow text-muted-foreground text-right">Conv.</div>
+      </div>
+      <ul className="row-divide">
         {rows.map((r) => (
-          <TableRow key={r.host || "(direct)"}>
-            <TableCell className="font-medium">
-              <div className="relative">
-                <div
-                  className="absolute inset-y-0 left-0 -mx-2 rounded-sm bg-accent/50"
-                  style={{ width: `${(r.sessions / max) * 100}%` }}
-                />
-                <span className="relative">{r.host || <span className="text-muted-foreground">(direct)</span>}</span>
+          <li key={r.host || "(direct)"} className="sm:grid sm:grid-cols-[1fr_5rem_5rem_5rem] sm:gap-4 sm:items-center py-3">
+            <div className="relative pr-2 min-w-0">
+              <div
+                className="absolute inset-y-0 left-0 -mx-1 rounded-sm bg-moss/12"
+                style={{ width: `${(r.sessions / max) * 100}%` }}
+                aria-hidden
+              />
+              <div className="relative truncate text-sm">
+                {r.host || <span className="italic text-muted-foreground">(direct)</span>}
               </div>
-            </TableCell>
-            <TableCell className="text-right tabular-nums">{r.visitors.toLocaleString()}</TableCell>
-            <TableCell className="text-right tabular-nums">{r.sessions.toLocaleString()}</TableCell>
-            <TableCell className="text-right tabular-nums">{r.conversions.toLocaleString()}</TableCell>
-            <TableCell className="text-right tabular-nums text-muted-foreground">
-              {(r.conversionRate * 100).toFixed(1)}%
-            </TableCell>
-          </TableRow>
+              <div className="mt-2 sm:hidden flex items-baseline gap-4 relative font-mono text-[11px] tabular-nums text-muted-foreground">
+                <span>{r.visitors.toLocaleString()} visitors</span>
+                <span>{r.sessions.toLocaleString()} sessions</span>
+                <span>{(r.conversionRate * 100).toFixed(1)}%</span>
+              </div>
+            </div>
+            <div className="hidden sm:block text-right font-mono text-sm tabular-nums">{r.visitors.toLocaleString()}</div>
+            <div className="hidden sm:block text-right font-mono text-sm tabular-nums">{r.sessions.toLocaleString()}</div>
+            <div className="hidden sm:block text-right font-mono text-sm tabular-nums">
+              <span className={r.conversions > 0 ? "text-foreground" : "text-muted-foreground"}>
+                {r.conversions}
+              </span>
+              <span className="text-muted-foreground"> · {(r.conversionRate * 100).toFixed(0)}%</span>
+            </div>
+          </li>
         ))}
-      </TableBody>
-    </Table>
+      </ul>
+    </div>
   );
 }
