@@ -82,6 +82,30 @@ export default function PropertySettingsPage() {
             copied={copied === "next"}
           />
         </div>
+
+        <div className="mt-8 max-w-lg text-sm text-muted-foreground leading-relaxed">
+          <div className="eyebrow mb-2">Tracking across subdomains</div>
+          <p>
+            If this property spans multiple subdomains (say{" "}
+            <code className="font-mono text-foreground">www.example.com</code> and{" "}
+            <code className="font-mono text-foreground">app.example.com</code>), add a{" "}
+            <code className="font-mono text-foreground">data-cookie-domain</code> attribute
+            so the visitor and session cookies are shared across them:
+          </p>
+          <pre className="mt-3 border-l-2 border-moss pl-4 py-2 font-mono text-xs text-foreground overflow-x-auto whitespace-pre bg-accent/25">
+{`<script
+  src="${origin}/pub/p.js"
+  data-site-id="${property.siteId}"
+  data-cookie-domain=".example.com"
+></script>`}
+          </pre>
+          <p className="mt-3">
+            The leading dot matters — it tells the browser to serve the cookie back on every
+            subdomain of that host. Without it, a person crossing from{" "}
+            <code className="font-mono text-foreground">www.</code> to{" "}
+            <code className="font-mono text-foreground">app.</code> looks like a new visitor.
+          </p>
+        </div>
       </Section>
 
       <Section label="Property details">

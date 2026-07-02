@@ -184,9 +184,24 @@ The `visitors` and `tracking_sessions` collections are much smaller (one row per
 
 ## Multi-subdomain platforms
 
-If you're tracking a platform that spans multiple subdomains (`www.example.com` + `app.example.com` + `demo.example.com`), the default cookie behavior scopes `_pgr_v` / `_pgr_s` to each exact host — meaning cross-subdomain navigation looks like a *new visitor* on the next subdomain.
+If you're tracking a platform that spans multiple subdomains (`www.example.com` + `app.example.com` + `demo.example.com`), add a `data-cookie-domain` attribute to the snippet:
 
-Today's tracker doesn't expose a knob to set a cookie domain. Track this as a limitation if the multi-subdomain case matters to you; a `data-cookie-domain=".example.com"` opt-in is a small future addition.
+```html
+<script
+  src="https://YOUR-PAGER/pub/p.js"
+  data-site-id="YOUR_SITE_ID"
+  data-cookie-domain=".example.com"
+></script>
+```
+
+That leading dot matters — it scopes the `_pgr_v` and `_pgr_s` cookies to *every* subdomain of `example.com`, so a person crossing from `www.` to `app.` is recognized as the same visitor with a continuous session.
+
+Without `data-cookie-domain`, cookies scope to the exact host and cross-subdomain navigation starts a fresh visitor + session on every hop.
+
+Two constraints worth knowing:
+
+- Use the eTLD+1 (the "registrable domain"). `.example.com` works; `.com` doesn't — browsers reject Public Suffix List entries. `.example.co.uk` works; `.co.uk` doesn't.
+- All subdomains must be on the same eTLD+1. This won't help you unify `example.com` and `example.io`; those are separate origins to the browser.
 
 ## Monitoring
 

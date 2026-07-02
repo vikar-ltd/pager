@@ -13,6 +13,12 @@
   var endpoint = script.getAttribute('data-endpoint')
     || (script.src ? script.src.replace(/\/pub\/p\.js.*$/, '/pub/collect') : null);
   if (!endpoint) return;
+  // Optional: opt-in to a shared cookie scope across subdomains. Set
+  // data-cookie-domain=".example.com" on the <script> tag when the same
+  // property spans www.example.com, app.example.com, etc. — otherwise
+  // each host manages its own _pgr_v / _pgr_s and cross-subdomain
+  // navigation looks like a new visitor.
+  var cookieDomain = script.getAttribute('data-cookie-domain');
 
   // ---- first-party cookies on the tracked site's domain
   var V_KEY = '_pgr_v';
@@ -23,9 +29,11 @@
     return m ? decodeURIComponent(m[1]) : null;
   }
   function setCookie(name, value, maxAgeSeconds) {
-    doc.cookie = name + '=' + encodeURIComponent(value)
+    var s = name + '=' + encodeURIComponent(value)
       + '; Max-Age=' + maxAgeSeconds
       + '; Path=/; SameSite=Lax';
+    if (cookieDomain) s += '; Domain=' + cookieDomain;
+    doc.cookie = s;
   }
   function randId() {
     var a = new Uint8Array(16);

@@ -72,6 +72,5 @@ window.pager?.("signup_completed", { plan: "pro" });
 - No automatic data retention. Prune manually or add a TTL index (see [DEPLOYMENT.md](DEPLOYMENT.md#retention--pruning)).
 - No bot filtering beyond obvious UA patterns.
 - No email / Slack alerts.
-- No cross-subdomain visitor identity out of the box (see [DEPLOYMENT.md](DEPLOYMENT.md#multi-subdomain-platforms)).
 
 These are explicit deferrals, not oversights.
