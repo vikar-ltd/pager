@@ -53,7 +53,7 @@ export default function PropertyLayout({ children }: { children: React.ReactNode
       </header>
 
       <nav className="-mx-5 md:mx-0">
-        <ul className="flex gap-6 md:gap-8 overflow-x-auto px-5 md:px-0 border-b border-rule">
+        <ul className="flex gap-6 md:gap-8 overflow-x-auto overflow-y-hidden px-5 md:px-0 border-b border-rule">
           {TABS.map((t) => {
             const href = t.slug ? `${base}/${t.slug}` : base;
             const active = t.slug === "" ? pathname === base : pathname === href || pathname.startsWith(href + "/");

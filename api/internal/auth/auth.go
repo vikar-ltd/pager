@@ -21,6 +21,12 @@ import (
 
 const CookieName = "pgr_admin"
 
+// sessionCookieMaxAge keeps the login cookie persistent across browser/PWA
+// restarts. Sessions never expire server-side (they live until revoked), so
+// this only governs how long the client holds the token — a long window means
+// installed PWAs don't force a re-login every time they're reopened.
+const sessionCookieMaxAge = 365 * 24 * 60 * 60 // 1 year, in seconds
+
 // SessionSync is the small slice of the session store we use for keeping
 // cached usernames on session docs in sync after a self-rename.
 type SessionSync interface {
@@ -154,7 +160,7 @@ func (a *Authenticator) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteErr(w, err)
 		return
 	}
-	setSessionCookie(w, r, token, 0)
+	setSessionCookie(w, r, token, sessionCookieMaxAge)
 	httpx.WriteJSON(w, http.StatusOK, meResponse(u, sess))
 }
 

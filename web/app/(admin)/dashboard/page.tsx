@@ -155,7 +155,7 @@ function PropertyRow({ property, overview }: { property: Property; overview: Ove
     <li>
       <Link
         href={`/properties/${property.id}`}
-        className="group grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_10rem] items-center gap-x-6 gap-y-1 py-5"
+        className="group grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_12rem] items-center gap-x-6 gap-y-1 py-5"
       >
         <div className="min-w-0">
           <div className="text-lg text-foreground group-hover:underline underline-offset-4 decoration-moss decoration-2 truncate">
@@ -167,19 +167,9 @@ function PropertyRow({ property, overview }: { property: Property; overview: Ove
           </div>
         </div>
 
-        <div className="col-span-2 md:col-span-1 md:col-start-3 order-3 md:order-none flex items-center justify-between md:justify-end gap-4">
-          <div className="text-right">
-            <div className="font-serif text-2xl leading-none tabular-nums">
-              {pageviews !== undefined ? (
-                pageviews.toLocaleString()
-              ) : (
-                <span className="text-muted-foreground/40">—</span>
-              )}
-            </div>
-            <div className="mt-1 font-mono text-[10px] uppercase tracking-eyebrow text-muted-foreground">
-              pv · {visitors ?? "—"} vis
-            </div>
-          </div>
+        <div className="col-span-2 md:col-span-1 md:col-start-3 order-3 md:order-none flex items-baseline justify-start md:justify-end gap-6">
+          <RowStat label="Pageviews" value={pageviews} />
+          <RowStat label="Visitors" value={visitors} />
         </div>
 
         <div className="col-start-2 md:col-start-2 order-2 md:order-none justify-self-end">
@@ -187,5 +177,18 @@ function PropertyRow({ property, overview }: { property: Property; overview: Ove
         </div>
       </Link>
     </li>
+  );
+}
+
+function RowStat({ label, value }: { label: string; value?: number }) {
+  return (
+    <div className="text-left md:text-right">
+      <div className="font-serif text-2xl leading-none tabular-nums">
+        {value !== undefined ? value.toLocaleString() : <span className="text-muted-foreground/40">—</span>}
+      </div>
+      <div className="mt-1 font-mono text-[10px] uppercase tracking-eyebrow text-muted-foreground">
+        {label}
+      </div>
+    </div>
   );
 }
