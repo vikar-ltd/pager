@@ -137,15 +137,22 @@ Good examples:
 | Placed order (paid) | `url` | `^/order/paid(\?\|$)` | `/order/paid`, `/order/paid?ref=x` — not `/order/paid-later` |
 | Signup completed | `event` | `signup_completed` | the `window.pager("signup_completed", …)` call |
 
-**Creating goals is a write action the plugin cannot do.** The MCP server is
-read-only (viewer account). So don't try to create goals via the tools. Instead:
+**Creating and updating goals via MCP.** The `create_goal` and `update_goal`
+tools write directly to the property (these require the MCP to be configured
+with an **admin/root** account — a viewer gets `403`). Workflow:
 
-1. Read current goals with `list_goals` to avoid duplicates.
-2. Hand the user the exact goal to add — its **name, kind, and pattern** — to
-   create in the Pager admin UI (or via `POST /int/api/properties/{id}/goals`
-   with an admin/root session if they want the API). Present it as a copy-ready
-   spec, e.g. *"Add a `url` goal named 'Placed order' with pattern
-   `^/order/paid(\?|$)`."*
+1. **Read first:** call `list_goals` and check for an existing goal with the
+   same intent. Don't create a near-duplicate — if one exists but its pattern is
+   wrong, use `update_goal` on it instead.
+2. **Confirm before writing:** state the exact goal you're about to create/change
+   (name, kind, pattern) and why, then call the tool. For an `update_goal` that
+   changes a matching `pattern`, call out that only *future* traffic is affected
+   — historical conversions are not recomputed.
+3. **`kind` is immutable.** To change a goal from `url` to `event` (or vice
+   versa) you must create a new goal; `update_goal` only touches name/pattern.
+4. If the account is read-only (viewer) and a write returns `403`, fall back to
+   handing the user a copy-ready spec — *"Add a `url` goal named 'Placed order'
+   with pattern `^/order/paid(\?|$)`"* — for the admin UI.
 
 ## 5. Verifying instrumentation worked
 
@@ -165,7 +172,8 @@ When `pager-insights` recommends tracking (e.g. "you have no checkout events"):
 1. `list_properties` → get the siteId.
 2. Decide the events/goals: name the events, write the goal specs.
 3. Produce the concrete changes: the `window.pager(...)` call sites in their
-   code, any UTM links, and the copy-ready goal specs for the UI.
+   code, any UTM links, and the goals — created directly with `create_goal`
+   (after `list_goals`), or as copy-ready specs if the MCP is read-only.
 4. Tell them how to verify (section 5).
 
 Be concrete and match the site's existing code style when editing their source.

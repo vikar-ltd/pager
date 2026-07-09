@@ -19,8 +19,11 @@ Point Claude at a running Pager instance and ask questions like:
 Claude answers by pulling the right reports from Pager's read API and reasoning
 over them — no manual dashboard clicking, no CSV exports.
 
-**Read-only by design.** The plugin never creates, edits, or deletes properties,
-goals, users, or data. It is safe to point at production.
+**Mostly read-only.** Every report tool is read-only. The only writes are
+conversion-goal management (`create_goal`, `update_goal`), which Pager gates
+behind an admin/root account; with a viewer account they return `403`. There are
+deliberately no delete or user-management tools, so the plugin can never remove a
+property, drop data, or touch accounts.
 
 ---
 
@@ -93,7 +96,8 @@ Claude works with the same field names the UI uses (`visitors`, `sessions`,
 
 **Why MCP and not just curl?** Typed tools mean Claude picks the right endpoint
 and parameters instead of guessing URLs, credentials stay in server config, and
-the read-only surface is enforced structurally — there is no write tool to call.
+the tool surface is bounded structurally — the only mutating tools are the two
+goal-management ones, and no destructive tool exists to call.
 
 ### 2.2 Skill — how to reason over the data
 
@@ -149,7 +153,10 @@ of the web toolchain. Decide at build time; the design is identical either way.
 - Credentials live only in the MCP server's env, never in prompts or tool args.
 - Recommend (and document) a dedicated **`viewer`** account — least privilege;
   even if leaked it can only read reports.
-- No write/delete tools exist, so the plugin cannot mutate the instance.
+- The only write tools are `create_goal`/`update_goal`, gated by an admin/root
+  account; no delete or user-management tools exist, so the plugin cannot remove
+  a property, drop data, or touch accounts. Enabling writes means the configured
+  account is admin — use a dedicated, revocable `claude-agent` user.
 - The plugin talks to the same public HTTPS endpoint the UI uses; no new port or
   network path is opened.
 

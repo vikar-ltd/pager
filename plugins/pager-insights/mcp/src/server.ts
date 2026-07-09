@@ -69,6 +69,31 @@ async function apiGet(
   return res.json();
 }
 
+/** Send a JSON body (POST/PATCH) to a write endpoint, with the same auth retry. */
+async function apiSend(
+  method: "POST" | "PATCH",
+  path: string,
+  body: unknown,
+): Promise<unknown> {
+  const doFetch = () =>
+    fetch(`${PAGER_URL}${path}`, {
+      method,
+      headers: { ...(cookie ? { cookie } : {}), "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+  if (!cookie) await login();
+  let res = await doFetch();
+  if (res.status === 401) {
+    await login();
+    res = await doFetch();
+  }
+  if (!res.ok) {
+    throw new Error(`${method} ${path} → ${res.status} ${await safeText(res)}`);
+  }
+  return res.json();
+}
+
 async function safeText(res: Response): Promise<string> {
   try {
     return await res.text();
@@ -163,6 +188,45 @@ server.tool(
   { id: propId, visitorId: z.string().describe("Visitor id from list_visitors.") },
   async ({ id, visitorId }) =>
     ok(await apiGet(`/int/api/properties/${id}/visitors/${visitorId}/timeline`)),
+);
+
+// Writes -------------------------------------------------------------------
+// Require an admin/root account (viewer cannot write). Before creating, call
+// list_goals to avoid duplicates. Deletes are intentionally not exposed.
+
+server.tool(
+  "create_goal",
+  "Create a conversion goal on a property. kind=url: pattern is an RE2 regex matched (unanchored) against the event path, which INCLUDES the query string — anchor with ^ for a prefix. kind=event: pattern is the exact custom-event name fired via window.pager(name). Call list_goals first to avoid duplicates.",
+  {
+    id: propId,
+    name: z.string().min(1).describe("Human-readable goal name."),
+    kind: z.enum(["url", "event"]).describe("'url' (regex on path) or 'event' (exact event name)."),
+    pattern: z
+      .string()
+      .min(1)
+      .describe("For url: an RE2 regex (e.g. ^/order/paid(\\?|$)). For event: the exact event name (e.g. signup_completed)."),
+  },
+  async ({ id, name, kind, pattern }) =>
+    ok(await apiSend("POST", `/int/api/properties/${id}/goals`, { name, kind, pattern })),
+);
+
+server.tool(
+  "update_goal",
+  "Update a goal's name and/or pattern. The goal's kind is immutable — a new pattern is re-validated against the existing kind (url patterns must be valid RE2). Pattern changes only affect FUTURE ingest matching; historical conversions are not recomputed. Provide at least one of name/pattern.",
+  {
+    goalId: z.string().describe("Goal id (from list_goals)."),
+    name: z.string().min(1).optional().describe("New name."),
+    pattern: z.string().min(1).optional().describe("New pattern (validated against the goal's existing kind)."),
+  },
+  async ({ goalId, name, pattern }) => {
+    if (name === undefined && pattern === undefined) {
+      throw new Error("update_goal requires at least one of name or pattern");
+    }
+    const body: Record<string, string> = {};
+    if (name !== undefined) body.name = name;
+    if (pattern !== undefined) body.pattern = pattern;
+    return ok(await apiSend("PATCH", `/int/api/goals/${goalId}`, body));
+  },
 );
 
 const transport = new StdioServerTransport();

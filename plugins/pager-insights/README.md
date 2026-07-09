@@ -5,14 +5,19 @@ Claude examines your tracked properties and data through a **read-only** MCP
 server and turns it into insights — traffic trends, top sources, campaign
 performance, conversion rates, and individual visitor journeys.
 
-> Read-only by design. The plugin can only read reports. It cannot create, edit,
-> or delete properties, goals, users, or data — safe to point at production.
+> Mostly read-only. Every report is read-only; the only writes are `create_goal`
+> and `update_goal` for conversion-goal management, and only when configured with
+> an admin/root account. There are deliberately no delete or user-management
+> tools, so the plugin can never remove a property, drop data, or touch accounts.
 
 ## What you get
 
-- **MCP tools** (one per Pager report endpoint): `list_properties`,
+- **Read tools** (one per Pager report endpoint): `list_properties`,
   `get_property`, `overview`, `sources`, `campaigns`, `list_goals`,
   `list_visitors`, `visitor_timeline`.
+- **Write tools** for goal management: `create_goal`, `update_goal`. These
+  require an **admin/root** account (see [Write access](#write-access)); with a
+  viewer account they return `403` and the rest of the plugin still works.
 - **`/pager-insights` command** — ask a question, or run it bare for a 24h
   cross-property health briefing.
 - **Two skills:**
@@ -46,6 +51,24 @@ performance, conversion rates, and individual visitor journeys.
 4. **Install the plugin** in Claude Code (add this directory as a plugin, or
    register it via a marketplace entry). The manifest wires the MCP server, the
    skill, and the command automatically.
+
+## Write access
+
+The read tools work with a **viewer** account — least privilege, recommended if
+you only want insights. The goal-write tools (`create_goal`, `update_goal`) call
+mutating endpoints that Pager gates behind `CanWrite()`, i.e. an **admin or
+root** role. To enable them:
+
+- Point `PAGER_USER`/`PAGER_PASSWORD` at an **admin** account. A dedicated
+  `claude-agent` admin is best — its writes are attributable in
+  `admin_sessions` (IP/UA) and you can revoke it independently.
+- Trade-off to accept knowingly: an admin credential can do more on the instance
+  than this plugin exposes (e.g. delete properties, manage viewer users) *via
+  other clients*. The plugin itself ships no such tools, but the account is only
+  as safe as where you store it — hence the Keychain approach below.
+
+With a viewer account the write tools simply return `403` and everything else
+keeps working.
 
 ## Usage
 
