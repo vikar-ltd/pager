@@ -15,8 +15,12 @@ performance, conversion rates, and individual visitor journeys.
   `list_visitors`, `visitor_timeline`.
 - **`/pager-insights` command** — ask a question, or run it bare for a 24h
   cross-property health briefing.
-- **A skill** that teaches Claude the analysis playbook (compare windows, flag
-  what's notable, respect visitor ≠ session).
+- **Two skills:**
+  - `pager-insights` — the analysis playbook (compare windows, flag what's
+    notable, respect visitor ≠ session).
+  - `pager-tracking` — how to *instrument* a site: install the snippet, fire
+    custom events, build UTM campaign links, and define conversion goals.
+    Turns an insight ("no checkout events") into concrete code + goal specs.
 
 ## Setup
 
