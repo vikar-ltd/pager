@@ -1,0 +1,14 @@
+{
+  "name": "vikar-pager",
+  "description": "Vikar Ltd plugins for the Pager visitor tracker.",
+  "owner": { "name": "Vikar Ltd" },
+  "plugins": [
+    {
+      "name": "pager-insights",
+      "description": "Examine a Pager instance's properties and tracked data and turn it into plain-language analytics insights. Read-only.",
+      "author": { "name": "Vikar Ltd" },
+      "category": "analytics",
+      "source": "./pager-insights"
+    }
+  ]
+}

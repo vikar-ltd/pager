@@ -1,0 +1,17 @@
+{
+  "name": "pager-insights",
+  "version": "0.1.0",
+  "description": "Examine a Pager visitor-tracker instance and turn its properties and tracked data into plain-language analytics insights. Read-only.",
+  "author": { "name": "Vikar Ltd" },
+  "mcpServers": {
+    "pager": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/dist/server.js"],
+      "env": {
+        "PAGER_URL": "${PAGER_URL}",
+        "PAGER_USER": "${PAGER_USER}",
+        "PAGER_PASSWORD": "${PAGER_PASSWORD}"
+      }
+    }
+  }
+}
