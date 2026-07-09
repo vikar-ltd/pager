@@ -107,9 +107,9 @@ func (h *Handler) Campaigns(w http.ResponseWriter, r *http.Request) {
 	switch groupBy {
 	case "", "source":
 		groupBy = "source"
-	case "medium", "campaign":
+	case "medium", "campaign", "term", "content":
 	default:
-		httpx.WriteErr(w, httpx.Errorf(http.StatusBadRequest, "bad_groupBy", "groupBy must be source, medium, or campaign"))
+		httpx.WriteErr(w, httpx.Errorf(http.StatusBadRequest, "bad_groupBy", "groupBy must be source, medium, campaign, term, or content"))
 		return
 	}
 	goalID, err := parseOptionalGoalID(r)

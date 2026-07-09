@@ -112,7 +112,7 @@ Guidance when generating links:
   by exact string, so `Instagram` and `instagram` split into two rows.
 - URL-encode values with spaces. Prefer `_` over spaces.
 - These map directly to what the MCP `campaigns` tool groups by
-  (`groupBy=source|medium|campaign`).
+  (`groupBy=source|medium|campaign|term|content`).
 
 ## 4. Conversion goals
 

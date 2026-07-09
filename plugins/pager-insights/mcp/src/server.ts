@@ -156,10 +156,13 @@ server.tool(
 
 server.tool(
   "campaigns",
-  "UTM attribution for a property, grouped by source/medium/campaign, with conversionRate (0..1). Pass goalId to attribute a specific goal.",
+  "UTM attribution for a property, grouped by a UTM dimension, with conversionRate (0..1). Pass goalId to attribute a specific goal.",
   {
     id: propId,
-    groupBy: z.enum(["source", "medium", "campaign"]).optional().describe("UTM dimension to group by. Defaults to source."),
+    groupBy: z
+      .enum(["source", "medium", "campaign", "term", "content"])
+      .optional()
+      .describe("UTM dimension to group by. Defaults to source."),
     goalId: z.string().optional().describe("Restrict conversions to this goal id."),
     ...rangeShape,
   },

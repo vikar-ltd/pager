@@ -8,11 +8,13 @@ import { GoalPicker } from "@/components/goal-picker";
 import { Section } from "@/components/section";
 import { cn } from "@/lib/utils";
 
-type GroupBy = "source" | "medium" | "campaign";
+type GroupBy = "source" | "medium" | "campaign" | "term" | "content";
 const GROUPS: { value: GroupBy; label: string }[] = [
   { value: "source", label: "Source" },
   { value: "medium", label: "Medium" },
   { value: "campaign", label: "Campaign" },
+  { value: "term", label: "Term" },
+  { value: "content", label: "Content" },
 ];
 
 export default function CampaignsPage() {
